@@ -132,7 +132,7 @@ async function getDatos(alumnoId: string) {
       .select('fecha, descanso, notas')
       .eq('alumno_id', alumnoId)
       .gte('fecha', desdeStr)
-      .order('fecha', { ascending: true }) as Promise<{ data: any[] | null }>,
+      .order('fecha', { ascending: true }) as unknown as Promise<{ data: any[] | null }>,
     supabase
       .from('registros_progreso')
       .select(`
@@ -147,7 +147,7 @@ async function getDatos(alumnoId: string) {
       .eq('alumno_id', alumnoId)
       .gte('fecha', desdeStr)
       .order('fecha', { ascending: false })
-      .order('created_at', { ascending: true }) as Promise<{ data: any[] | null }>,
+      .order('created_at', { ascending: true }) as unknown as Promise<{ data: any[] | null }>,
   ])
 
   const bienestar = (bienestarResult.data ?? []) as { fecha: string; descanso: number; notas: string | null }[]
