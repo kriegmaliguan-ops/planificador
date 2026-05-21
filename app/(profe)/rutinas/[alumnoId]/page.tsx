@@ -1,0 +1,181 @@
+import { notFound } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
+import { typed, typedList } from '@/lib/supabase/types-helper'
+import { RutinaBuilder } from '@/components/rutinas/RutinaBuilder'
+import type { Profile, GrupoMuscular, DiaSemana } from '@/lib/types/database'
+import type { EjercicioItem } from '@/app/(profe)/ejercicios/page'
+
+// ── Tipos para el builder ────────────────────────────────────────────────────
+
+export interface EjercicioEnDia {
+  id: string              // rutina_ejercicio.id
+  ejercicio_id: string
+  nombre: string
+  grupos: GrupoMuscular[]
+  orden: number
+  series: number
+  repeticiones: string
+  peso_objetivo: number | null
+  descanso_segundos: number | null
+  notas: string | null
+}
+
+export interface EstadoDia {
+  id: string | null       // rutina_dia.id (null = no existe en DB aún)
+  nombre: string
+  esDescanso: boolean
+  ejercicios: EjercicioEnDia[]
+}
+
+export interface RutinaData {
+  id: string
+  nombre: string
+  activa: boolean
+  semanas: number[]                                          // [1, 2, 3, ...]
+  dias: Record<number, Record<DiaSemana, EstadoDia>>        // semana → dia → estado
+}
+
+// ── Fetch ────────────────────────────────────────────────────────────────────
+
+const DIAS_ORDEN: DiaSemana[] = [
+  'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo',
+]
+
+function initWeek(): Record<DiaSemana, EstadoDia> {
+  const d = {} as Record<DiaSemana, EstadoDia>
+  for (const dia of DIAS_ORDEN) {
+    d[dia] = { id: null, nombre: '', esDescanso: false, ejercicios: [] }
+  }
+  return d
+}
+
+async function getData(alumnoId: string) {
+  const supabase = await createClient()
+
+  const [alumnoResult, ejerciciosResult, rutinaResult] = await Promise.all([
+    supabase.from('profiles').select('id, nombre, apellido').eq('id', alumnoId).single(),
+    supabase
+      .from('ejercicios')
+      .select('id, nombre, descripcion, video_url, grupos:ejercicio_grupos(grupo:grupos_musculares(id, nombre))')
+      .order('nombre'),
+    supabase
+      .from('rutinas')
+      .select(`
+        id, nombre, activa,
+        dias:rutina_dias(
+          id, dia_semana, nombre, orden, es_descanso, semana_numero,
+          ejercicios:rutina_ejercicios(
+            id, ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas,
+            ejercicio:ejercicios(id, nombre, grupos:ejercicio_grupos(grupo:grupos_musculares(id, nombre)))
+          )
+        )
+      `)
+      .eq('alumno_id', alumnoId)
+      .eq('activa', true)
+      .maybeSingle(),
+  ])
+
+  const alumno = typed<Pick<Profile, 'id' | 'nombre' | 'apellido'>>(alumnoResult).data
+  if (!alumno) return null
+
+  const ejerciciosLib: EjercicioItem[] = ((ejerciciosResult.data as any[]) ?? []).map((ej) => ({
+    id: ej.id,
+    nombre: ej.nombre,
+    descripcion: ej.descripcion,
+    video_url: ej.video_url,
+    grupos: (ej.grupos as any[]).map((g: any) => g.grupo as GrupoMuscular),
+  }))
+
+  let rutinaData: RutinaData | null = null
+  const rawRutina = rutinaResult.data as any
+
+  if (rawRutina) {
+    const semanasSet = new Set<number>()
+    const diasBySemana: Record<number, Record<DiaSemana, EstadoDia>> = {}
+
+    for (const dia of (rawRutina.dias ?? [])) {
+      const sem: number = dia.semana_numero ?? 1
+      semanasSet.add(sem)
+      if (!diasBySemana[sem]) diasBySemana[sem] = initWeek()
+
+      const ejercicios: EjercicioEnDia[] = (dia.ejercicios ?? [])
+        .sort((a: any, b: any) => a.orden - b.orden)
+        .map((re: any) => ({
+          id: re.id,
+          ejercicio_id: re.ejercicio_id,
+          nombre: re.ejercicio?.nombre ?? '',
+          grupos: (re.ejercicio?.grupos ?? []).map((g: any) => g.grupo as GrupoMuscular),
+          orden: re.orden,
+          series: re.series,
+          repeticiones: re.repeticiones,
+          peso_objetivo: re.peso_objetivo,
+          descanso_segundos: re.descanso_segundos,
+          notas: re.notas,
+        }))
+
+      diasBySemana[sem][dia.dia_semana as DiaSemana] = {
+        id: dia.id,
+        nombre: dia.nombre ?? '',
+        esDescanso: dia.es_descanso ?? false,
+        ejercicios,
+      }
+    }
+
+    if (semanasSet.size === 0) semanasSet.add(1)
+    if (!diasBySemana[1]) diasBySemana[1] = initWeek()
+
+    rutinaData = {
+      id: rawRutina.id,
+      nombre: rawRutina.nombre,
+      activa: rawRutina.activa,
+      semanas: Array.from(semanasSet).sort((a, b) => a - b),
+      dias: diasBySemana,
+    }
+  }
+
+  return { alumno, ejerciciosLib, rutinaData }
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
+
+interface Props {
+  params: Promise<{ alumnoId: string }>
+}
+
+export default async function RutinaBuilderPage({ params }: Props) {
+  const { alumnoId } = await params
+  const data = await getData(alumnoId)
+
+  if (!data) notFound()
+
+  const { alumno, ejerciciosLib, rutinaData } = data
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-6 py-3">
+        <Link
+          href={`/alumnos/${alumnoId}`}
+          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {alumno.nombre} {alumno.apellido ?? ''}
+        </Link>
+        <span className="text-slate-300">/</span>
+        <span className="text-sm font-medium text-slate-900">
+          {rutinaData ? rutinaData.nombre : 'Nueva rutina'}
+        </span>
+      </div>
+
+      {/* Builder */}
+      <RutinaBuilder
+        alumnoId={alumnoId}
+        alumnoNombre={`${alumno.nombre} ${alumno.apellido ?? ''}`.trim()}
+        rutinaInicial={rutinaData}
+        ejerciciosLib={ejerciciosLib}
+      />
+    </div>
+  )
+}

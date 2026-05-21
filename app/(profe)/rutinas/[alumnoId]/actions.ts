@@ -1,0 +1,239 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { createClient } from '@/lib/supabase/server'
+import { typed } from '@/lib/supabase/types-helper'
+import type { DiaSemana } from '@/lib/types/database'
+
+// ── Crear rutina ──────────────────────────────────────────────────────────────
+
+export async function crearRutina(
+  alumnoId: string,
+  nombre: string
+): Promise<{ error?: string; id?: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+
+  await (supabase.from('rutinas') as any)
+    .update({ activa: false })
+    .eq('alumno_id', alumnoId)
+
+  const { data, error } = typed<{ id: string }>(
+    await (supabase.from('rutinas') as any)
+      .insert({ alumno_id: alumnoId, nombre, activa: true, created_by: user.id })
+      .select('id')
+      .single()
+  )
+
+  if (error || !data) return { error: 'Error al crear la rutina.' }
+
+  revalidatePath(`/rutinas/${alumnoId}`)
+  return { id: data.id }
+}
+
+// ── Actualizar nombre de rutina ───────────────────────────────────────────────
+
+export async function actualizarNombreRutina(
+  id: string,
+  nombre: string,
+  alumnoId: string
+): Promise<void> {
+  const supabase = await createClient()
+  await (supabase.from('rutinas') as any).update({ nombre }).eq('id', id)
+  revalidatePath(`/rutinas/${alumnoId}`)
+}
+
+// ── Agregar ejercicio a un día ────────────────────────────────────────────────
+
+export async function agregarEjercicioARutina({
+  rutinaId,
+  diaId,
+  diaSemana,
+  semanaNumero,
+  alumnoId,
+  ejercicioId,
+  series,
+  repeticiones,
+  peso_objetivo,
+  descanso_segundos,
+}: {
+  rutinaId: string
+  diaId: string | null
+  diaSemana: DiaSemana
+  semanaNumero: number
+  alumnoId: string
+  ejercicioId: string
+  series: number
+  repeticiones: string
+  peso_objetivo: number | null
+  descanso_segundos: number
+}): Promise<{ error?: string; diaId?: string; ejercicioRutinaId?: string }> {
+  const supabase = await createClient()
+  let finalDiaId = diaId
+
+  if (!finalDiaId) {
+    const { data: dia, error: diaError } = typed<{ id: string }>(
+      await (supabase.from('rutina_dias') as any)
+        .insert({ rutina_id: rutinaId, dia_semana: diaSemana, orden: 0, semana_numero: semanaNumero })
+        .select('id')
+        .single()
+    )
+    if (diaError || !dia) return { error: 'Error al crear el día.' }
+    finalDiaId = dia.id
+  }
+
+  const { data: existing } = await supabase
+    .from('rutina_ejercicios')
+    .select('orden')
+    .eq('dia_id', finalDiaId)
+    .order('orden', { ascending: false })
+    .limit(1) as { data: { orden: number }[] | null }
+
+  const orden = (existing?.[0]?.orden ?? -1) + 1
+
+  const { data: re, error } = typed<{ id: string }>(
+    await (supabase.from('rutina_ejercicios') as any)
+      .insert({
+        dia_id: finalDiaId,
+        ejercicio_id: ejercicioId,
+        orden,
+        series,
+        repeticiones,
+        peso_objetivo,
+        descanso_segundos,
+      })
+      .select('id')
+      .single()
+  )
+
+  if (error || !re) return { error: 'Error al agregar el ejercicio.' }
+
+  revalidatePath(`/rutinas/${alumnoId}`)
+  return { diaId: finalDiaId, ejercicioRutinaId: re.id }
+}
+
+// ── Actualizar parámetros de un ejercicio en la rutina ────────────────────────
+
+export async function actualizarEjercicioRutina(
+  id: string,
+  alumnoId: string,
+  params: {
+    series: number
+    repeticiones: string
+    peso_objetivo: number | null
+    descanso_segundos: number | null
+    notas: string | null
+  }
+): Promise<void> {
+  const supabase = await createClient()
+  await (supabase.from('rutina_ejercicios') as any).update(params).eq('id', id)
+  revalidatePath(`/rutinas/${alumnoId}`)
+}
+
+// ── Eliminar ejercicio de un día ──────────────────────────────────────────────
+
+export async function removerEjercicioDeRutina(
+  id: string,
+  alumnoId: string
+): Promise<void> {
+  const supabase = await createClient()
+  await supabase.from('rutina_ejercicios').delete().eq('id', id)
+  revalidatePath(`/rutinas/${alumnoId}`)
+}
+
+// ── Actualizar nombre de un día ───────────────────────────────────────────────
+
+export async function actualizarNombreDia(
+  diaId: string,
+  nombre: string,
+  alumnoId: string
+): Promise<void> {
+  const supabase = await createClient()
+  await (supabase.from('rutina_dias') as any).update({ nombre }).eq('id', diaId)
+  revalidatePath(`/rutinas/${alumnoId}`)
+}
+
+// ── Marcar / desmarcar día de descanso ────────────────────────────────────────
+
+export async function toggleDiaDescanso(
+  rutinaId: string,
+  diaSemana: DiaSemana,
+  semanaNumero: number,
+  diaId: string | null,
+  esDescanso: boolean,
+  alumnoId: string
+): Promise<{ error?: string; diaId?: string }> {
+  const supabase = await createClient()
+  let finalDiaId = diaId
+
+  if (!finalDiaId) {
+    const { data, error } = typed<{ id: string }>(
+      await (supabase.from('rutina_dias') as any)
+        .insert({ rutina_id: rutinaId, dia_semana: diaSemana, orden: 0, semana_numero: semanaNumero, es_descanso: esDescanso })
+        .select('id')
+        .single()
+    )
+    if (error || !data) return { error: 'Error al crear el día.' }
+    finalDiaId = data.id
+  } else {
+    await (supabase.from('rutina_dias') as any)
+      .update({ es_descanso: esDescanso })
+      .eq('id', finalDiaId)
+  }
+
+  revalidatePath(`/rutinas/${alumnoId}`)
+  return { diaId: finalDiaId }
+}
+
+// ── Copiar ejercicios de un día a otro ───────────────────────────────────────
+
+export async function copiarDia(
+  rutinaId: string,
+  diaOrigenId: string,
+  diaDestinoSemana: DiaSemana,
+  semanaNumero: number,
+  alumnoId: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+
+  const { data: ejercicios } = await supabase
+    .from('rutina_ejercicios')
+    .select('ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas')
+    .eq('dia_id', diaOrigenId)
+    .order('orden') as { data: any[] | null }
+
+  if (!ejercicios?.length) return { error: 'El día origen no tiene ejercicios.' }
+
+  const { data: diaDestino } = await supabase
+    .from('rutina_dias')
+    .select('id')
+    .eq('rutina_id', rutinaId)
+    .eq('dia_semana', diaDestinoSemana)
+    .eq('semana_numero', semanaNumero)
+    .maybeSingle() as { data: { id: string } | null }
+
+  let destinoId: string
+  if (diaDestino) {
+    destinoId = diaDestino.id
+    await supabase.from('rutina_ejercicios').delete().eq('dia_id', destinoId)
+  } else {
+    const { data: nuevoDia, error } = typed<{ id: string }>(
+      await (supabase.from('rutina_dias') as any)
+        .insert({ rutina_id: rutinaId, dia_semana: diaDestinoSemana, orden: 0, semana_numero: semanaNumero })
+        .select('id')
+        .single()
+    )
+    if (error || !nuevoDia) return { error: 'Error al crear el día destino.' }
+    destinoId = nuevoDia.id
+  }
+
+  const nuevos = ejercicios.map((e) => ({ ...e, dia_id: destinoId }))
+  const { error } = await (supabase.from('rutina_ejercicios') as any).insert(nuevos)
+  if (error) return { error: 'Error al copiar los ejercicios.' }
+
+  revalidatePath(`/rutinas/${alumnoId}`)
+  return {}
+}

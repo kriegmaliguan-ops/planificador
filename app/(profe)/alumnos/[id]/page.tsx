@@ -1,0 +1,196 @@
+import { notFound } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowLeft, Mail, CalendarDays, Dumbbell, ChevronRight, TrendingUp, User } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
+import { typed, typedList } from '@/lib/supabase/types-helper'
+import type { Profile, Rutina } from '@/lib/types/database'
+
+interface Props {
+  params: Promise<{ id: string }>
+}
+
+async function getAlumnoData(id: string) {
+  const supabase = await createClient()
+
+  const [profileResult, rutinasResult] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', id).eq('role', 'alumno').single(),
+    supabase
+      .from('rutinas')
+      .select('id, nombre, activa, fecha_inicio, fecha_fin, created_at')
+      .eq('alumno_id', id)
+      .order('activa', { ascending: false })
+      .order('created_at', { ascending: false }),
+  ])
+
+  return {
+    profile: typed<Profile>(profileResult).data,
+    rutinas: typedList<Pick<Rutina, 'id' | 'nombre' | 'activa' | 'fecha_inicio' | 'fecha_fin' | 'created_at'>>(rutinasResult).data,
+  }
+}
+
+export default async function AlumnoPerfilPage({ params }: Props) {
+  const { id } = await params
+  const { profile, rutinas } = await getAlumnoData(id)
+
+  if (!profile) notFound()
+
+  const initials = [profile.nombre, profile.apellido]
+    .filter(Boolean)
+    .map((n) => n![0].toUpperCase())
+    .join('')
+
+  const rutinaActiva = rutinas.find((r) => r.activa)
+
+  return (
+    <div className="px-4 py-6 md:p-8 max-w-4xl">
+      {/* Back */}
+      <Link
+        href="/alumnos"
+        className="mb-6 inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Volver a alumnos
+      </Link>
+
+      {/* Header del alumno */}
+      <div className="mb-8 flex items-start gap-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-2xl font-bold text-blue-700">
+          {initials || '?'}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-bold text-slate-900">
+            {profile.nombre} {profile.apellido ?? ''}
+          </h1>
+          <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-500">
+            <span className="flex items-center gap-1.5">
+              <Mail className="h-4 w-4" />
+              {profile.email}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CalendarDays className="h-4 w-4" />
+              Miembro desde{' '}
+              {new Date(profile.created_at).toLocaleDateString('es-AR', {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric',
+              })}
+            </span>
+          </div>
+          {rutinaActiva && (
+            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Rutina activa: {rutinaActiva.nombre}
+            </span>
+          )}
+        </div>
+        <Link
+          href={`/rutinas/${id}`}
+          className="shrink-0 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 transition-colors"
+        >
+          {rutinaActiva ? 'Editar rutina' : 'Crear rutina'}
+        </Link>
+      </div>
+
+      {/* Navegación rápida */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Link
+          href={`/alumnos/${id}/perfil`}
+          className="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100 hover:ring-blue-200 hover:shadow-md transition-all group"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 group-hover:bg-violet-200 transition-colors">
+            <User className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-slate-900 text-sm">Datos del alumno</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {profile.peso ? `${profile.peso} kg` : '—'}{' '}
+              {profile.altura ? `· ${profile.altura} cm` : ''}
+            </p>
+          </div>
+          <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-slate-300 group-hover:text-blue-500 transition-colors" />
+        </Link>
+
+        <Link
+          href={`/alumnos/${id}/progreso`}
+          className="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100 hover:ring-blue-200 hover:shadow-md transition-all group"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 group-hover:bg-emerald-200 transition-colors">
+            <TrendingUp className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-slate-900 text-sm">Progreso</p>
+            <p className="text-xs text-slate-400 mt-0.5">Historial de entrenamientos</p>
+          </div>
+          <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-slate-300 group-hover:text-blue-500 transition-colors" />
+        </Link>
+      </div>
+
+      {/* Rutinas */}
+      <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <h2 className="font-semibold text-slate-900">
+            Rutinas{' '}
+            <span className="ml-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+              {rutinas.length}
+            </span>
+          </h2>
+          <Link
+            href={`/rutinas/${id}`}
+            className="text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors"
+          >
+            Nueva rutina
+          </Link>
+        </div>
+
+        {rutinas.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
+              <Dumbbell className="h-7 w-7 text-slate-400" />
+            </div>
+            <p className="text-sm text-slate-500">Este alumno no tiene rutinas aún.</p>
+            <Link
+              href={`/rutinas/${id}`}
+              className="mt-1 text-sm font-medium text-blue-600 hover:underline"
+            >
+              Crear primera rutina
+            </Link>
+          </div>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {rutinas.map((rutina) => (
+              <li key={rutina.id}>
+                <Link
+                  href={`/rutinas/${id}?rutina=${rutina.id}`}
+                  className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors group"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-slate-900">{rutina.nombre}</p>
+                      {rutina.activa && (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                          Activa
+                        </span>
+                      )}
+                    </div>
+                    {(rutina.fecha_inicio || rutina.fecha_fin) && (
+                      <p className="mt-0.5 text-xs text-slate-400">
+                        {rutina.fecha_inicio
+                          ? new Date(rutina.fecha_inicio).toLocaleDateString('es-AR')
+                          : '—'}{' '}
+                        →{' '}
+                        {rutina.fecha_fin
+                          ? new Date(rutina.fecha_fin).toLocaleDateString('es-AR')
+                          : 'sin fecha'}
+                      </p>
+                    )}
+                  </div>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-slate-300 group-hover:text-blue-500 transition-colors" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  )
+}
