@@ -73,11 +73,23 @@ function getISOWeekKey(dateStr: string): string {
   return `${year}-W${String(week).padStart(2, '0')}`
 }
 
+function weekKeyToMonday(wk: string): Date {
+  const [yearStr, weekStr] = wk.split('-W')
+  const year = Number(yearStr)
+  const week = Number(weekStr)
+  const jan4 = new Date(year, 0, 4)
+  const dayOfWeek = (jan4.getDay() + 6) % 7
+  const monday = new Date(jan4)
+  monday.setDate(jan4.getDate() - dayOfWeek + (week - 1) * 7)
+  return monday
+}
+
 function buildSemanal(
   bienestar: { fecha: string; descanso: number }[],
   rpe: { fecha: string; rpe: number }[]
 ): PuntoTemporal[] {
   const hoy = new Date()
+  const currentWeek = getISOWeekKey(hoy.toISOString().split('T')[0])
   const semanas: string[] = []
   for (let i = 7; i >= 0; i--) {
     const d = new Date(hoy)
@@ -86,11 +98,15 @@ function buildSemanal(
   }
   const unique = [...new Set(semanas)].slice(-8)
 
-  return unique.map((wk, i) => {
+  return unique.map((wk) => {
     const b = bienestar.filter((x) => getISOWeekKey(x.fecha) === wk).map((x) => x.descanso)
     const r = rpe.filter((x) => getISOWeekKey(x.fecha) === wk).map((x) => x.rpe)
+    const monday = weekKeyToMonday(wk)
+    const label = wk === currentWeek
+      ? 'Hoy'
+      : monday.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
     return {
-      label: `Sem ${i + 1}`,
+      label,
       descanso: avgOrNull(b),
       rpe: avgOrNull(r),
       sesiones: new Set(rpe.filter((x) => getISOWeekKey(x.fecha) === wk).map((x) => x.fecha)).size,

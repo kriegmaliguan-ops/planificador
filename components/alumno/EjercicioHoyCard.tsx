@@ -16,14 +16,13 @@ export interface EjercicioHoyData {
   peso_objetivo: number | null
   descanso_segundos: number | null
   notas: string | null
-  // Último registro histórico
   ultimoPeso: number | null
   ultimasReps: string | null
-  // Registro de hoy (si ya lo hizo)
   registroHoy: {
     series_completadas: number | null
     repeticiones_realizadas: string | null
     peso_utilizado: number | null
+    pesos_por_serie?: (number | null)[] | null
     rpe: number | null
   } | null
 }
@@ -32,6 +31,18 @@ interface EjercicioHoyCardProps {
   ejercicio: EjercicioHoyData
   index: number
   fecha?: string
+}
+
+function initPesos(ejercicio: EjercicioHoyData): string[] {
+  const n = ejercicio.series
+  if (ejercicio.registroHoy?.pesos_por_serie?.length) {
+    const arr = ejercicio.registroHoy.pesos_por_serie
+    return Array(n).fill('').map((_, i) =>
+      arr[i] != null ? String(arr[i]) : (ejercicio.peso_objetivo != null ? String(ejercicio.peso_objetivo) : '')
+    )
+  }
+  const def = ejercicio.registroHoy?.peso_utilizado ?? ejercicio.peso_objetivo
+  return Array(n).fill(def != null ? String(def) : '')
 }
 
 export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardProps) {
@@ -44,20 +55,43 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
   const [form, setForm] = useState({
     series: ejercicio.registroHoy?.series_completadas ?? ejercicio.series,
     reps: ejercicio.registroHoy?.repeticiones_realizadas ?? ejercicio.repeticiones,
-    peso: ejercicio.registroHoy?.peso_utilizado ?? ejercicio.peso_objetivo ?? '',
-    rpe: ejercicio.registroHoy?.rpe ?? '',
+    pesos: initPesos(ejercicio),
+    rpe: ejercicio.registroHoy?.rpe ?? '' as number | '',
     notas: '',
   })
+
+  // Sincronizar largo de pesos cuando cambia series
+  const numSeries = Math.max(1, Math.min(10, Number(form.series) || 1))
+  const pesosSync = form.pesos.length !== numSeries
+    ? Array(numSeries).fill('').map((_, i) => form.pesos[i] ?? form.pesos[0] ?? '')
+    : form.pesos
+
+  function setPeso(i: number, val: string) {
+    const next = [...pesosSync]
+    next[i] = val
+    setForm(p => ({ ...p, pesos: next }))
+  }
+
+  function fillAllPesos(val: string) {
+    setForm(p => ({ ...p, pesos: Array(numSeries).fill(val) }))
+  }
 
   function handleGuardar(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    const pesosNums = pesosSync.map(p => p !== '' ? Number(p) : null)
+    const noNulls = pesosNums.filter(p => p !== null) as number[]
+    const pesoUtilizado = noNulls.length > 0
+      ? Math.round((noNulls.reduce((a, b) => a + b, 0) / noNulls.length) * 10) / 10
+      : null
+
     startTransition(async () => {
       const result = await registrarProgreso({
         rutinaEjercicioId: ejercicio.rutinaEjercicioId,
-        seriesCompletadas: Number(form.series) || ejercicio.series,
+        seriesCompletadas: numSeries,
         repeticionesRealizadas: String(form.reps) || ejercicio.repeticiones,
-        pesoUtilizado: form.peso !== '' ? Number(form.peso) : null,
+        pesoUtilizado,
+        pesos_por_serie: pesosNums,
         rpe: form.rpe !== '' ? Number(form.rpe) : null,
         notas: form.notas || null,
         fecha,
@@ -80,14 +114,12 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
         onClick={() => setExpandido((v) => !v)}
         className="flex w-full items-center gap-3 px-4 py-4 text-left"
       >
-        {/* Número */}
         <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
           guardado ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
         }`}>
           {guardado ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : index + 1}
         </div>
 
-        {/* Nombre + grupos */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="font-semibold text-slate-900">{ejercicio.nombre}</p>
@@ -98,7 +130,6 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-red-500 hover:text-red-600 transition-colors"
-                title="Ver video tutorial"
               >
                 <PlayCircle className="h-4 w-4" />
               </a>
@@ -115,7 +146,6 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
           )}
         </div>
 
-        {/* Prescripción compacta + toggle */}
         <div className="flex shrink-0 flex-col items-end gap-1">
           <span className="text-sm font-semibold text-slate-700">
             {ejercicio.series}×{ejercicio.repeticiones}
@@ -135,7 +165,7 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
       {/* Panel expandido */}
       {expandido && (
         <div className="border-t border-slate-100 px-4 pb-4">
-          {/* Contexto: último registro + descanso */}
+          {/* Contexto */}
           <div className="mb-4 mt-3 flex flex-wrap gap-3">
             {ejercicio.ultimoPeso !== null && (
               <div className="flex items-center gap-1.5 rounded-xl bg-blue-50 px-3 py-1.5">
@@ -157,14 +187,12 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
             )}
           </div>
 
-          {/* Formulario de registro */}
           <form onSubmit={handleGuardar} className="space-y-4">
-            {/* Inputs principales */}
-            <div className="grid grid-cols-3 gap-3">
+            {/* Series + Reps */}
+            <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Series', key: 'series', type: 'number', min: 1 },
                 { label: 'Reps', key: 'reps', type: 'text' },
-                { label: 'Peso (kg)', key: 'peso', type: 'number', min: 0, step: 0.5 },
               ].map(({ label, key, ...rest }) => (
                 <div key={key} className="flex flex-col gap-1">
                   <label className="text-center text-xs font-medium text-slate-700">{label}</label>
@@ -176,6 +204,42 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
                   />
                 </div>
               ))}
+            </div>
+
+            {/* Pesos por serie */}
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="text-xs font-medium text-slate-700">
+                  {numSeries === 1 ? 'Peso (kg)' : `Peso por serie (kg)`}
+                </label>
+                {numSeries > 1 && pesosSync[0] !== '' && (
+                  <button
+                    type="button"
+                    onClick={() => fillAllPesos(pesosSync[0])}
+                    className="text-xs text-blue-500 hover:text-blue-700 transition-colors"
+                  >
+                    Igual en todas
+                  </button>
+                )}
+              </div>
+              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(numSeries, 4)}, minmax(0, 1fr))` }}>
+                {pesosSync.map((p, i) => (
+                  <div key={i} className="flex flex-col items-center gap-1">
+                    {numSeries > 1 && (
+                      <span className="text-[10px] font-semibold text-slate-400">S{i + 1}</span>
+                    )}
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      placeholder="—"
+                      value={p}
+                      onChange={(e) => setPeso(i, e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 px-2 py-3 text-center text-lg font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* RPE */}

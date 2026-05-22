@@ -83,7 +83,7 @@ async function getDatosDia(alumnoId: string, fecha: string) {
   if (rutinaEjerciciosIds.length > 0) {
     const { data: diaData } = await supabase
       .from('registros_progreso')
-      .select('rutina_ejercicio_id, series_completadas, repeticiones_realizadas, peso_utilizado, rpe')
+      .select('rutina_ejercicio_id, series_completadas, repeticiones_realizadas, peso_utilizado, pesos_por_serie, rpe')
       .eq('alumno_id', alumnoId)
       .in('rutina_ejercicio_id', rutinaEjerciciosIds)
       .eq('fecha', fecha) as { data: any[] | null }

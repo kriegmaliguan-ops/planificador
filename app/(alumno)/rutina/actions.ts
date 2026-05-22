@@ -8,6 +8,7 @@ export async function registrarProgreso(data: {
   seriesCompletadas: number
   repeticionesRealizadas: string
   pesoUtilizado: number | null
+  pesos_por_serie?: (number | null)[]
   rpe: number | null
   notas: string | null
   fecha?: string
@@ -30,33 +31,25 @@ export async function registrarProgreso(data: {
     .eq('fecha', hoy)
     .maybeSingle() as { data: { id: string } | null }
 
-  if (existente) {
-    // Actualizar el registro existente
-    const { error } = await (supabase.from('registros_progreso') as any)
-      .update({
-        series_completadas: data.seriesCompletadas,
-        repeticiones_realizadas: data.repeticionesRealizadas,
-        peso_utilizado: data.pesoUtilizado,
-        rpe: data.rpe,
-        notas: data.notas,
-      })
-      .eq('id', existente.id)
+  const payload: Record<string, unknown> = {
+    series_completadas: data.seriesCompletadas,
+    repeticiones_realizadas: data.repeticionesRealizadas,
+    peso_utilizado: data.pesoUtilizado,
+    rpe: data.rpe,
+    notas: data.notas,
+  }
+  if (data.pesos_por_serie && data.pesos_por_serie.length > 0) {
+    payload.pesos_por_serie = data.pesos_por_serie
+  }
 
+  if (existente) {
+    const { error } = await (supabase.from('registros_progreso') as any)
+      .update(payload)
+      .eq('id', existente.id)
     if (error) return { error: 'Error al actualizar el registro.' }
   } else {
-    // Crear nuevo registro
     const { error } = await (supabase.from('registros_progreso') as any)
-      .insert({
-        alumno_id: user.id,
-        rutina_ejercicio_id: data.rutinaEjercicioId,
-        fecha: hoy,
-        series_completadas: data.seriesCompletadas,
-        repeticiones_realizadas: data.repeticionesRealizadas,
-        peso_utilizado: data.pesoUtilizado,
-        rpe: data.rpe,
-        notas: data.notas,
-      })
-
+      .insert({ alumno_id: user.id, rutina_ejercicio_id: data.rutinaEjercicioId, fecha: hoy, ...payload })
     if (error) return { error: 'Error al guardar el registro.' }
   }
 

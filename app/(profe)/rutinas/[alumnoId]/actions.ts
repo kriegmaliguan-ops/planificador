@@ -237,3 +237,71 @@ export async function copiarDia(
   revalidatePath(`/rutinas/${alumnoId}`)
   return {}
 }
+
+// ── Copiar semana completa ────────────────────────────────────────────────────
+
+export async function copiarSemana(
+  rutinaId: string,
+  semanaOrigen: number,
+  semanaDestino: number,
+  alumnoId: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+
+  // Obtener todos los días de la semana origen con sus ejercicios
+  const { data: diasOrigen } = await supabase
+    .from('rutina_dias')
+    .select('id, dia_semana, nombre, es_descanso, orden, rutina_ejercicios(ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas)')
+    .eq('rutina_id', rutinaId)
+    .eq('semana_numero', semanaOrigen) as { data: any[] | null }
+
+  if (!diasOrigen?.length) return { error: 'La semana origen no tiene días.' }
+
+  for (const diaOrigen of diasOrigen) {
+    // Eliminar día destino si existe
+    const { data: diaExistente } = await supabase
+      .from('rutina_dias')
+      .select('id')
+      .eq('rutina_id', rutinaId)
+      .eq('dia_semana', diaOrigen.dia_semana)
+      .eq('semana_numero', semanaDestino)
+      .maybeSingle() as { data: { id: string } | null }
+
+    let destinoId: string
+
+    if (diaExistente) {
+      destinoId = diaExistente.id
+      await supabase.from('rutina_ejercicios').delete().eq('dia_id', destinoId)
+      await (supabase.from('rutina_dias') as any)
+        .update({ nombre: diaOrigen.nombre, es_descanso: diaOrigen.es_descanso })
+        .eq('id', destinoId)
+    } else {
+      const { data: nuevoDia, error: diaErr } = typed<{ id: string }>(
+        await (supabase.from('rutina_dias') as any)
+          .insert({
+            rutina_id: rutinaId,
+            dia_semana: diaOrigen.dia_semana,
+            nombre: diaOrigen.nombre,
+            es_descanso: diaOrigen.es_descanso,
+            orden: diaOrigen.orden,
+            semana_numero: semanaDestino,
+          })
+          .select('id')
+          .single()
+      )
+      if (diaErr || !nuevoDia) return { error: 'Error al crear día destino.' }
+      destinoId = nuevoDia.id
+    }
+
+    // Copiar ejercicios si no es descanso
+    const ejercicios = diaOrigen.rutina_ejercicios ?? []
+    if (ejercicios.length > 0) {
+      const nuevos = ejercicios.map((e: any) => ({ ...e, dia_id: destinoId }))
+      const { error: ejErr } = await (supabase.from('rutina_ejercicios') as any).insert(nuevos)
+      if (ejErr) return { error: 'Error al copiar ejercicios.' }
+    }
+  }
+
+  revalidatePath(`/rutinas/${alumnoId}`)
+  return {}
+}

@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, useState, useTransition } from 'react'
-import { Plus, Pencil, Check, Dumbbell, Moon, Copy } from 'lucide-react'
+import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck } from 'lucide-react'
 import { DIAS_SEMANA, DIAS_LABELS } from '@/lib/utils'
 import {
   crearRutina,
@@ -9,6 +9,7 @@ import {
   actualizarNombreDia,
   toggleDiaDescanso,
   copiarDia,
+  copiarSemana,
 } from '@/app/(profe)/rutinas/[alumnoId]/actions'
 import { EjercicioDiaRow } from './EjercicioDiaRow'
 import { AgregarEjercicioModal } from './AgregarEjercicioModal'
@@ -122,6 +123,7 @@ export function RutinaBuilder({
   const [editandoNombre, setEditandoNombre] = useState(false)
   const [editandoDia, setEditandoDia] = useState(false)
   const [copiarAbierto, setCopiarAbierto] = useState(false)
+  const [copiarSemanaAbierto, setCopiarSemanaAbierto] = useState(false)
   const [, startTransition] = useTransition()
 
   if (!rutina) {
@@ -235,8 +237,36 @@ export function RutinaBuilder({
     setSemanaActiva(nueva)
   }
 
-  // ── Agregar ejercicio
-  function handleEjercicioAgregado(newDiaId: string, ejercicio: EjercicioEnDia) {
+  // ── Copiar semana
+  function handleCopiarSemana(destino: number) {
+    setCopiarSemanaAbierto(false)
+    startTransition(async () => {
+      const result = await copiarSemana(rutina!.id, semanaActiva, destino, alumnoId)
+      if (!result.error) {
+        // Si la semana destino no existía en el estado local, agregarla
+        setRutina((r) => {
+          if (!r) return r
+          const semanasSet = new Set([...r.semanas, destino])
+          return {
+            ...r,
+            semanas: Array.from(semanasSet).sort((a, b) => a - b),
+            dias: {
+              ...r.dias,
+              [destino]: {
+                ...r.dias[destino],
+                // Los días se recargarán en el próximo render del server
+              },
+            },
+          }
+        })
+        // Recargar la página para ver los cambios en la semana destino
+        window.location.reload()
+      }
+    })
+  }
+
+  // ── Agregar ejercicios (puede ser uno o varios)
+  function handleEjercicioAgregado(newDiaId: string, ejercicios: EjercicioEnDia[]) {
     setRutina((r) => {
       if (!r) return r
       const diaPrev = r.dias[semanaActiva][diaActivo]
@@ -249,7 +279,7 @@ export function RutinaBuilder({
             [diaActivo]: {
               ...diaPrev,
               id: newDiaId,
-              ejercicios: [...diaPrev.ejercicios, ejercicio],
+              ejercicios: [...diaPrev.ejercicios, ...ejercicios],
             },
           },
         },
@@ -360,6 +390,41 @@ export function RutinaBuilder({
           <Plus className="h-3 w-3" />
           Sem
         </button>
+
+        {/* Copiar semana activa */}
+        <div className="relative ml-1">
+          <button
+            onClick={() => setCopiarSemanaAbierto((v) => !v)}
+            title={`Copiar Sem ${semanaActiva}`}
+            className="shrink-0 flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
+          >
+            <CopyCheck className="h-3 w-3" />
+            Copiar Sem {semanaActiva}
+          </button>
+          {copiarSemanaAbierto && (
+            <div className="absolute left-0 top-full z-20 mt-1 min-w-[140px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+              <p className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-500">
+                Copiar a...
+              </p>
+              {rutina.semanas.filter((s) => s !== semanaActiva).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => handleCopiarSemana(s)}
+                  className="flex w-full items-center px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                >
+                  Sem {s}
+                </button>
+              ))}
+              <button
+                onClick={() => handleCopiarSemana(Math.max(...rutina.semanas) + 1)}
+                className="flex w-full items-center px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 transition-colors border-t border-slate-100"
+              >
+                <Plus className="h-3 w-3 mr-1.5" />
+                Nueva semana
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tabs de días */}
