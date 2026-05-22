@@ -4,17 +4,20 @@ import { createClient } from '@/lib/supabase/server'
 import { getHoyChile } from '@/lib/utils'
 import { RutinaCompleta } from './RutinaCompleta'
 
+function addDays(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d + days)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
 export default async function MiRutinaPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const hoy = getHoyChile()
-
-  // Fecha de hace 7 días para traer toda la semana de bienestar
-  const [y, m, d] = hoy.split('-').map(Number)
-  const hace7 = new Date(y, m - 1, d - 6)
-  const hace7Str = `${hace7.getFullYear()}-${String(hace7.getMonth() + 1).padStart(2, '0')}-${String(hace7.getDate()).padStart(2, '0')}`
+  // Bienestar: 90 días cubre hasta ~12 semanas de historial
+  const hace90Str = addDays(hoy, -90)
 
   const [rutinaResult, progresoResult, bienestarResult] = await Promise.all([
     supabase
@@ -39,12 +42,11 @@ export default async function MiRutinaPage() {
       .eq('alumno_id', user.id)
       .eq('fecha', hoy) as unknown as Promise<{ data: { rutina_ejercicio_id: string }[] | null }>,
 
-    // Bienestar de los últimos 7 días (para todos los días de la semana)
     supabase
       .from('registros_bienestar')
       .select('fecha, descanso, notas')
       .eq('alumno_id', user.id)
-      .gte('fecha', hace7Str)
+      .gte('fecha', hace90Str)
       .lte('fecha', hoy) as unknown as Promise<{ data: { fecha: string; descanso: number; notas: string | null }[] | null }>,
   ])
 
@@ -69,12 +71,36 @@ export default async function MiRutinaPage() {
     )
   }
 
+  // ── Detectar semana activa desde el último registro de entrenamiento ──────────
+  // Esto permite mapear cada semana_numero de la rutina a una semana calendario.
+  const allIds = (rutina.dias ?? []).flatMap((d: any) => (d.ejercicios ?? []).map((e: any) => e.id))
+  let semanaDetectada = 1
+
+  if (allIds.length > 0) {
+    const { data: ultimo } = await supabase
+      .from('registros_progreso')
+      .select('rutina_ejercicio_id')
+      .eq('alumno_id', user.id)
+      .in('rutina_ejercicio_id', allIds)
+      .order('fecha', { ascending: false })
+      .limit(1)
+      .maybeSingle() as { data: { rutina_ejercicio_id: string } | null }
+
+    if (ultimo) {
+      const diaDelUltimo = (rutina.dias ?? []).find((d: any) =>
+        (d.ejercicios ?? []).some((e: any) => e.id === ultimo.rutina_ejercicio_id)
+      )
+      if (diaDelUltimo?.semana_numero) semanaDetectada = diaDelUltimo.semana_numero
+    }
+  }
+
   return (
     <RutinaCompleta
       rutina={rutina}
       completadosHoy={completadosHoy}
       bienestarPorFecha={bienestarPorFecha}
       hoy={hoy}
+      semanaDetectada={semanaDetectada}
     />
   )
 }
