@@ -1,7 +1,7 @@
 'use client'
 
 import { useTransition, useState } from 'react'
-import { Dumbbell, AlertCircle } from 'lucide-react'
+import { Dumbbell, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { login } from './actions'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input'
 export default function LoginPage() {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [showPass, setShowPass] = useState(false)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -56,15 +57,24 @@ export default function LoginPage() {
               <label htmlFor="password" className="block text-sm font-medium text-slate-200">
                 Contraseña
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                placeholder="••••••••"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20"
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPass ? 'text' : 'password'}
+                  required
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 pr-10 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             {error && (

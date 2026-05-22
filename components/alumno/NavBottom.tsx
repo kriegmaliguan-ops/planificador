@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarDays, TrendingUp, BookOpen } from 'lucide-react'
+import { CalendarDays, TrendingUp, BookOpen, UserCircle } from 'lucide-react'
 
 const TABS = [
-  { href: '/rutina',    label: 'Hoy',     icon: CalendarDays },
-  { href: '/mi-rutina', label: 'Rutina',  icon: BookOpen     },
-  { href: '/progreso',  label: 'Progreso', icon: TrendingUp  },
+  { href: '/rutina',    label: 'Hoy',      icon: CalendarDays },
+  { href: '/mi-rutina', label: 'Rutina',   icon: BookOpen     },
+  { href: '/progreso',  label: 'Progreso', icon: TrendingUp   },
+  { href: '/perfil',    label: 'Perfil',   icon: UserCircle   },
 ]
 
 export function NavBottom() {
