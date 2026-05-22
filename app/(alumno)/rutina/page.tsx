@@ -310,11 +310,11 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
               </span>
             </div>
           )}
-
-          {/* Sueño al final */}
-          {!modoSemana && <BienestarCard registroHoy={bienestarHoy} fecha={fecha} />}
         </>
       )}
+
+      {/* Sueño — siempre visible (cualquier día, cualquier fecha) */}
+      {!modoSemana && <BienestarCard registroHoy={bienestarHoy} fecha={fecha} />}
     </div>
   )
 }
