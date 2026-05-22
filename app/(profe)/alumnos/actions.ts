@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 interface CrearAlumnoData {
@@ -67,4 +68,18 @@ export async function crearAlumno(
     console.error('crearAlumno error:', err)
     return { error: 'Error inesperado. Revisá que SUPABASE_SERVICE_ROLE_KEY esté configurada.' }
   }
+}
+
+export async function eliminarAlumno(alumnoId: string): Promise<{ error?: string }> {
+  try {
+    const supabase = createAdminClient()
+    const { error } = await supabase.auth.admin.deleteUser(alumnoId)
+    if (error) return { error: 'Error al eliminar el alumno.' }
+    revalidatePath('/alumnos')
+    revalidatePath('/dashboard')
+  } catch (err) {
+    console.error('eliminarAlumno error:', err)
+    return { error: 'Error inesperado al eliminar.' }
+  }
+  redirect('/alumnos')
 }

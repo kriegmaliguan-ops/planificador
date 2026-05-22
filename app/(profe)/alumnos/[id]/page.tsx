@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { ArrowLeft, Mail, CalendarDays, Dumbbell, ChevronRight, TrendingUp, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { typed, typedList } from '@/lib/supabase/types-helper'
+import { EliminarAlumnoBtn } from '@/components/alumnos/EliminarAlumnoBtn'
 import type { Profile, Rutina } from '@/lib/types/database'
 
 interface Props {
@@ -190,6 +191,15 @@ export default async function AlumnoPerfilPage({ params }: Props) {
             ))}
           </ul>
         )}
+      </div>
+
+      {/* Zona de peligro */}
+      <div className="mt-6 rounded-2xl border border-red-100 bg-red-50/50 p-5">
+        <p className="mb-3 text-sm font-semibold text-red-700">Zona de peligro</p>
+        <EliminarAlumnoBtn
+          alumnoId={id}
+          nombre={`${profile.nombre}${profile.apellido ? ' ' + profile.apellido : ''}`}
+        />
       </div>
     </div>
   )
