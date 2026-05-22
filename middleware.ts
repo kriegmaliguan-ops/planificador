@@ -32,8 +32,14 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // /auth/nueva-contrasena: siempre permitida (el alumno invitado ya tiene sesión
+  // pero necesita pasar por aquí para crear su contraseña)
+  if (pathname.startsWith('/auth/nueva-contrasena')) {
+    return supabaseResponse
+  }
+
   // Rutas públicas que no requieren autenticación
-  const publicRoutes = ['/login', '/auth/callback', '/auth/nueva-contrasena']
+  const publicRoutes = ['/login', '/auth/callback']
   if (publicRoutes.some((r) => pathname.startsWith(r))) {
     if (user) {
       // Usuario ya autenticado: redirigir según rol
