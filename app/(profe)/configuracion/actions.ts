@@ -18,7 +18,7 @@ export async function actualizarPerfilProfe(data: {
 
   if (error) return { error: 'Error al guardar.' }
 
-  revalidatePath('/perfil')
+  revalidatePath('/configuracion')
   revalidatePath('/dashboard')
   return {}
 }

@@ -87,9 +87,9 @@ export function Sidebar({ profile, onClose }: SidebarProps) {
       {/* Usuario + logout */}
       <div className="border-t border-slate-800 p-3 space-y-1">
         <Link
-          href="/perfil"
+          href="/configuracion"
           className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
-            pathname === '/perfil' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-slate-800'
+            pathname === '/configuracion' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-slate-800'
           }`}
         >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white">
