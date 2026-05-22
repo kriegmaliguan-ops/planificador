@@ -30,7 +30,7 @@ export async function crearAlumno(
         apellido: apellido || null,
         role: 'alumno',
       },
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/rutina`,
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/auth/callback?next=/auth/nueva-contrasena`,
     })
 
     if (error) {

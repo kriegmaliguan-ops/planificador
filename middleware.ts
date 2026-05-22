@@ -33,8 +33,8 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Rutas públicas que no requieren autenticación
-  const publicRoutes = ['/login']
-  if (publicRoutes.includes(pathname)) {
+  const publicRoutes = ['/login', '/auth/callback', '/auth/nueva-contrasena']
+  if (publicRoutes.some((r) => pathname.startsWith(r))) {
     if (user) {
       // Usuario ya autenticado: redirigir según rol
       const { data: profile } = await supabase
