@@ -24,6 +24,10 @@ export async function GET(request: NextRequest) {
       type: type as any,
     })
     if (!error) {
+      // Recuperación de contraseña → siempre ir a cambiar contraseña
+      if (type === 'recovery') {
+        return NextResponse.redirect(`${origin}/auth/nueva-contrasena`)
+      }
       return NextResponse.redirect(`${origin}${next}`)
     }
   }

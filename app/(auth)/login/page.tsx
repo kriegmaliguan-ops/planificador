@@ -1,6 +1,7 @@
 'use client'
 
 import { useTransition, useState } from 'react'
+import Link from 'next/link'
 import { Dumbbell, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { login } from './actions'
 import { Button } from '@/components/ui/Button'
@@ -94,8 +95,11 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="mt-6 text-center text-xs text-slate-600">
-          ¿Olvidaste tu contraseña? Contactá a tu profe.
+        <p className="mt-6 text-center text-xs text-slate-500">
+          ¿Olvidaste tu contraseña?{' '}
+          <Link href="/auth/recuperar" className="text-blue-400 hover:underline">
+            Recuperar acceso
+          </Link>
         </p>
       </div>
     </div>
