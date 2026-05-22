@@ -134,7 +134,7 @@ async function getDatos(alumnoId: string, hoy: string) {
   const supabase = await createClient()
   const desdeStr = addDays(hoy, -180)
 
-  const [bienestarResult, progresoResult, pesoResult] = await Promise.all([
+  const [bienestarResult, progresoResult, pesoResult] = await Promise.allSettled([
     supabase
       .from('registros_bienestar')
       .select('fecha, descanso, notas')
@@ -164,9 +164,9 @@ async function getDatos(alumnoId: string, hoy: string) {
       .order('fecha', { ascending: false }) as unknown as Promise<{ data: any[] | null }>,
   ])
 
-  const bienestar = (bienestarResult.data ?? []) as RegistroBienestar[]
-  const progreso = (progresoResult.data ?? []) as any[]
-  const pesos = (pesoResult.data ?? []) as RegistroPeso[]
+  const bienestar = (bienestarResult.status === 'fulfilled' ? (bienestarResult.value.data ?? []) : []) as RegistroBienestar[]
+  const progreso = (progresoResult.status === 'fulfilled' ? (progresoResult.value.data ?? []) : []) as any[]
+  const pesos = (pesoResult.status === 'fulfilled' ? (pesoResult.value.data ?? []) : []) as RegistroPeso[]
 
   // RPE records (solo los que tienen rpe)
   const rpeRecords = progreso.filter((r) => r.rpe !== null).map((r) => ({

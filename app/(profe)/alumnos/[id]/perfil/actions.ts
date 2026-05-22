@@ -16,6 +16,12 @@ export async function actualizarPerfilAlumno(
   }
 ): Promise<{ error?: string }> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single() as { data: { role: string } | null }
+  if (profile?.role !== 'profe') return { error: 'Sin permisos.' }
 
   const { error } = await (supabase.from('profiles') as any)
     .update({

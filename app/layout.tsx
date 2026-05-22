@@ -10,10 +10,14 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   title: "Planificador Pro",
   description: "Gestión de rutinas y seguimiento de progreso deportivo",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "Planificador Pro",
+  },
+  icons: {
+    apple: "/icon.svg",
   },
 };
 

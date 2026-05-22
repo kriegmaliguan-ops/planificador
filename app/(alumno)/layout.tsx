@@ -3,6 +3,7 @@ import { Dumbbell, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { typed } from '@/lib/supabase/types-helper'
 import { NavBottom } from '@/components/alumno/NavBottom'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { logout } from '@/app/(auth)/login/actions'
 import type { Profile } from '@/lib/types/database'
 
@@ -51,7 +52,9 @@ export default async function AlumnoLayout({
       </header>
 
       {/* Contenido principal */}
-      <main className="flex-1 pb-20">{children}</main>
+      <main className="flex-1 pb-20">
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </main>
 
       {/* Nav inferior */}
       <NavBottom />

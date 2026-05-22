@@ -1,9 +1,10 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, PauseCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { typed, typedList } from '@/lib/supabase/types-helper'
 import { RutinaBuilder } from '@/components/rutinas/RutinaBuilder'
+import { SuspenderAlumnoBtn } from '@/components/alumnos/SuspenderAlumnoBtn'
 import type { Profile, GrupoMuscular, DiaSemana } from '@/lib/types/database'
 import type { EjercicioItem } from '@/app/(profe)/ejercicios/page'
 
@@ -55,7 +56,7 @@ async function getData(alumnoId: string) {
   const supabase = await createClient()
 
   const [alumnoResult, ejerciciosResult, rutinaResult] = await Promise.all([
-    supabase.from('profiles').select('id, nombre, apellido').eq('id', alumnoId).single(),
+    supabase.from('profiles').select('id, nombre, apellido, suspendido').eq('id', alumnoId).single(),
     supabase
       .from('ejercicios')
       .select('id, nombre, descripcion, video_url, grupos:ejercicio_grupos(grupo:grupos_musculares(id, nombre))')
@@ -77,7 +78,7 @@ async function getData(alumnoId: string) {
       .maybeSingle(),
   ])
 
-  const alumno = typed<Pick<Profile, 'id' | 'nombre' | 'apellido'>>(alumnoResult).data
+  const alumno = typed<Pick<Profile, 'id' | 'nombre' | 'apellido' | 'suspendido'>>(alumnoResult).data
   if (!alumno) return null
 
   const ejerciciosLib: EjercicioItem[] = ((ejerciciosResult.data as any[]) ?? []).map((ej) => ({
@@ -151,6 +152,34 @@ export default async function RutinaBuilderPage({ params }: Props) {
   if (!data) notFound()
 
   const { alumno, ejerciciosLib, rutinaData } = data
+
+  if (alumno.suspendido === true) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-6 py-3">
+          <Link
+            href={`/alumnos/${alumnoId}`}
+            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {alumno.nombre} {alumno.apellido ?? ''}
+          </Link>
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+            <PauseCircle className="h-8 w-8 text-amber-600" />
+          </div>
+          <div>
+            <p className="text-lg font-bold text-slate-900">Alumno suspendido</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {alumno.nombre} tiene el acceso pausado. Reactivalo para editar su rutina.
+            </p>
+          </div>
+          <SuspenderAlumnoBtn alumnoId={alumnoId} suspendido={true} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col">

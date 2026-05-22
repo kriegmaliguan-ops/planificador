@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Dumbbell } from 'lucide-react'
+import { Dumbbell, PauseCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getHoyChile } from '@/lib/utils'
 import { RutinaCompleta } from './RutinaCompleta'
@@ -16,10 +16,28 @@ export default async function MiRutinaPage() {
   if (!user) redirect('/login')
 
   const hoy = getHoyChile()
+
+  const { data: profile } = await supabase
+    .from('profiles').select('suspendido').eq('id', user.id).single() as { data: { suspendido: boolean } | null }
+
+  if (profile?.suspendido === true) {
+    return (
+      <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+          <PauseCircle className="h-8 w-8 text-amber-600" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-800">Tu plan está pausado</h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Contactá a tu profe para reactivar el acceso.
+        </p>
+      </div>
+    )
+  }
+
   // Bienestar: 90 días cubre hasta ~12 semanas de historial
   const hace90Str = addDays(hoy, -90)
 
-  const [rutinaResult, progresoResult, bienestarResult] = await Promise.all([
+  const [rutinaResult, progresoResult, bienestarResult] = await Promise.allSettled([
     supabase
       .from('rutinas')
       .select(`
@@ -50,12 +68,12 @@ export default async function MiRutinaPage() {
       .lte('fecha', hoy) as unknown as Promise<{ data: { fecha: string; descanso: number; notas: string | null }[] | null }>,
   ])
 
-  const rutina = rutinaResult.data
-  const completadosHoy = (progresoResult.data ?? []).map(r => r.rutina_ejercicio_id)
+  const rutina = rutinaResult.status === 'fulfilled' ? rutinaResult.value.data : null
+  const completadosHoy = (progresoResult.status === 'fulfilled' ? (progresoResult.value.data ?? []) : []).map((r: { rutina_ejercicio_id: string }) => r.rutina_ejercicio_id)
 
   // Mapa fecha → registro de bienestar
   const bienestarPorFecha: Record<string, { descanso: number; notas: string | null }> = {}
-  for (const b of bienestarResult.data ?? []) {
+  for (const b of (bienestarResult.status === 'fulfilled' ? (bienestarResult.value.data ?? []) : [])) {
     bienestarPorFecha[b.fecha] = { descanso: b.descanso, notas: b.notas }
   }
 

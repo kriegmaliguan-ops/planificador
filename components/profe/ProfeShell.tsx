@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Menu, Dumbbell } from 'lucide-react'
 import { Sidebar } from './Sidebar'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import type { Profile } from '@/lib/types/database'
 
 interface ProfeShellProps {
@@ -52,7 +53,9 @@ export function ProfeShell({ profile, children }: ProfeShellProps) {
           </div>
         </div>
 
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
       </div>
     </div>
   )

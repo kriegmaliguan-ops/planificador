@@ -4,6 +4,7 @@ import { ArrowLeft, Mail, CalendarDays, Dumbbell, ChevronRight, TrendingUp, User
 import { createClient } from '@/lib/supabase/server'
 import { typed, typedList } from '@/lib/supabase/types-helper'
 import { EliminarAlumnoBtn } from '@/components/alumnos/EliminarAlumnoBtn'
+import { SuspenderAlumnoBtn } from '@/components/alumnos/SuspenderAlumnoBtn'
 import type { Profile, Rutina } from '@/lib/types/database'
 
 interface Props {
@@ -77,12 +78,20 @@ export default async function AlumnoPerfilPage({ params }: Props) {
               })}
             </span>
           </div>
-          {rutinaActiva && (
-            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Rutina activa: {rutinaActiva.nombre}
-            </span>
-          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {profile.suspendido && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                Suspendido
+              </span>
+            )}
+            {rutinaActiva && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Rutina activa: {rutinaActiva.nombre}
+              </span>
+            )}
+          </div>
         </div>
         <Link
           href={`/rutinas/${id}`}
@@ -196,10 +205,13 @@ export default async function AlumnoPerfilPage({ params }: Props) {
       {/* Zona de peligro */}
       <div className="mt-6 rounded-2xl border border-red-100 bg-red-50/50 p-5">
         <p className="mb-3 text-sm font-semibold text-red-700">Zona de peligro</p>
-        <EliminarAlumnoBtn
-          alumnoId={id}
-          nombre={`${profile.nombre}${profile.apellido ? ' ' + profile.apellido : ''}`}
-        />
+        <div className="flex flex-wrap gap-3">
+          <SuspenderAlumnoBtn alumnoId={id} suspendido={profile.suspendido ?? false} />
+          <EliminarAlumnoBtn
+            alumnoId={id}
+            nombre={`${profile.nombre}${profile.apellido ? ' ' + profile.apellido : ''}`}
+          />
+        </div>
       </div>
     </div>
   )

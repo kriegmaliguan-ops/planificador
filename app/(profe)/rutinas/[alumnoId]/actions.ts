@@ -42,7 +42,9 @@ export async function actualizarNombreRutina(
   alumnoId: string
 ): Promise<void> {
   const supabase = await createClient()
-  await (supabase.from('rutinas') as any).update({ nombre }).eq('id', id)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  await (supabase.from('rutinas') as any).update({ nombre }).eq('id', id).eq('created_by', user.id)
   revalidatePath(`/rutinas/${alumnoId}`)
 }
 
@@ -72,6 +74,8 @@ export async function agregarEjercicioARutina({
   descanso_segundos: number
 }): Promise<{ error?: string; diaId?: string; ejercicioRutinaId?: string }> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
   let finalDiaId = diaId
 
   if (!finalDiaId) {
@@ -129,6 +133,8 @@ export async function actualizarEjercicioRutina(
   }
 ): Promise<void> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
   await (supabase.from('rutina_ejercicios') as any).update(params).eq('id', id)
   revalidatePath(`/rutinas/${alumnoId}`)
 }
@@ -140,6 +146,8 @@ export async function removerEjercicioDeRutina(
   alumnoId: string
 ): Promise<void> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
   await supabase.from('rutina_ejercicios').delete().eq('id', id)
   revalidatePath(`/rutinas/${alumnoId}`)
 }
@@ -152,6 +160,8 @@ export async function actualizarNombreDia(
   alumnoId: string
 ): Promise<void> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
   await (supabase.from('rutina_dias') as any).update({ nombre }).eq('id', diaId)
   revalidatePath(`/rutinas/${alumnoId}`)
 }
@@ -167,6 +177,8 @@ export async function toggleDiaDescanso(
   alumnoId: string
 ): Promise<{ error?: string; diaId?: string }> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
   let finalDiaId = diaId
 
   if (!finalDiaId) {
@@ -198,6 +210,8 @@ export async function copiarDia(
   alumnoId: string
 ): Promise<{ error?: string }> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
 
   const { data: ejercicios } = await supabase
     .from('rutina_ejercicios')
@@ -247,6 +261,8 @@ export async function copiarSemana(
   alumnoId: string
 ): Promise<{ error?: string }> {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
 
   // Obtener todos los días de la semana origen con sus ejercicios
   const { data: diasOrigen } = await supabase

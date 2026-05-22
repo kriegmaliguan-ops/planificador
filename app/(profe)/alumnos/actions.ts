@@ -3,6 +3,31 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
+
+export async function suspenderAlumno(
+  alumnoId: string,
+  suspendido: boolean
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single() as { data: { role: string } | null }
+  if (profile?.role !== 'profe') return { error: 'Sin permisos.' }
+
+  const { error } = await (supabase.from('profiles') as any)
+    .update({ suspendido })
+    .eq('id', alumnoId)
+    .eq('role', 'alumno')
+
+  if (error) return { error: 'Error al actualizar.' }
+
+  revalidatePath(`/alumnos/${alumnoId}`)
+  revalidatePath(`/rutinas/${alumnoId}`)
+  return {}
+}
 
 interface CrearAlumnoData {
   nombre: string

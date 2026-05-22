@@ -315,13 +315,13 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
                   </span>
                 )}
               </div>
-              <div className="flex gap-1">
+              <div className="grid grid-cols-5 gap-1.5">
                 {[1,2,3,4,5,6,7,8,9,10].map((n) => (
                   <button
                     key={n}
                     type="button"
                     onClick={() => setForm((p) => ({ ...p, rpe: p.rpe === n ? '' : n }))}
-                    className={`flex-1 rounded-lg py-2 text-xs font-bold transition-colors ${
+                    className={`rounded-lg py-2.5 text-sm font-bold transition-colors ${
                       rpeButtonColor(n, form.rpe === n)
                     }`}
                   >

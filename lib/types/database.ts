@@ -23,6 +23,7 @@ export interface Profile {
   fecha_nacimiento: string | null
   objetivo: string | null
   notas_profe: string | null
+  suspendido: boolean | null
   created_at: string
   updated_at: string
 }
