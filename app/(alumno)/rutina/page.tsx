@@ -2,13 +2,14 @@ import { redirect } from 'next/navigation'
 import { Dumbbell, PartyPopper, CalendarDays, Moon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { typed } from '@/lib/supabase/types-helper'
-import { getDiaHoy, DIAS_LABELS, DIAS_SEMANA, DESCANSO_CONFIG } from '@/lib/utils'
+import { getDiaHoy, DIAS_LABELS, DIAS_SEMANA } from '@/lib/utils'
 import { EjercicioHoyCard } from '@/components/alumno/EjercicioHoyCard'
 import { BienestarCard } from '@/components/alumno/BienestarCard'
+import { DateNav } from '@/components/alumno/DateNav'
 import type { Profile, GrupoMuscular, DiaSemana } from '@/lib/types/database'
 import type { EjercicioHoyData } from '@/components/alumno/EjercicioHoyCard'
 
-// ── Tipos internos ────────────────────────────────────────────────────────────
+// ── Tipos ─────────────────────────────────────────────────────────────────────
 
 interface SemanaItem {
   dia: DiaSemana
@@ -17,12 +18,20 @@ interface SemanaItem {
   esDescanso: boolean
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getDiaFromFecha(fecha: string): DiaSemana {
+  const [y, m, d] = fecha.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  const days: DiaSemana[] = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
+  return days[date.getDay()]
+}
+
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 
-async function getDatosDia(alumnoId: string) {
+async function getDatosDia(alumnoId: string, fecha: string) {
   const supabase = await createClient()
-  const hoy = getDiaHoy() as DiaSemana
-  const fechaHoy = new Date().toISOString().split('T')[0]
+  const diaDelFecha = getDiaFromFecha(fecha)
 
   const { data: rawRutina } = await supabase
     .from('rutinas')
@@ -42,13 +51,13 @@ async function getDatosDia(alumnoId: string) {
 
   if (!rawRutina) return { rutina: null, ejerciciosHoy: [], semana: [], bienestarHoy: null }
 
-  const diaHoy = (rawRutina.dias ?? []).find((d: any) => d.dia_semana === hoy)
+  const diaHoy = (rawRutina.dias ?? []).find((d: any) => d.dia_semana === diaDelFecha)
   const esDescanso = diaHoy?.es_descanso ?? false
   const rutinaEjerciciosIds: string[] = diaHoy && !esDescanso
     ? (diaHoy.ejercicios ?? []).map((re: any) => re.id)
     : []
 
-  // Últimos registros históricos por ejercicio
+  // Último registro histórico por ejercicio (antes de la fecha seleccionada)
   const ultimosRegistros: Record<string, { peso: number | null; reps: string | null }> = {}
   if (rutinaEjerciciosIds.length > 0) {
     const { data: historico } = await supabase
@@ -56,7 +65,7 @@ async function getDatosDia(alumnoId: string) {
       .select('rutina_ejercicio_id, peso_utilizado, repeticiones_realizadas, fecha')
       .eq('alumno_id', alumnoId)
       .in('rutina_ejercicio_id', rutinaEjerciciosIds)
-      .lt('fecha', fechaHoy)
+      .lt('fecha', fecha)
       .order('fecha', { ascending: false }) as { data: any[] | null }
 
     for (const r of historico ?? []) {
@@ -69,27 +78,27 @@ async function getDatosDia(alumnoId: string) {
     }
   }
 
-  // Registros de hoy
-  const registrosHoy: Record<string, any> = {}
+  // Registros de la fecha seleccionada
+  const registrosDia: Record<string, any> = {}
   if (rutinaEjerciciosIds.length > 0) {
-    const { data: hoyData } = await supabase
+    const { data: diaData } = await supabase
       .from('registros_progreso')
       .select('rutina_ejercicio_id, series_completadas, repeticiones_realizadas, peso_utilizado, rpe')
       .eq('alumno_id', alumnoId)
       .in('rutina_ejercicio_id', rutinaEjerciciosIds)
-      .eq('fecha', fechaHoy) as { data: any[] | null }
+      .eq('fecha', fecha) as { data: any[] | null }
 
-    for (const r of hoyData ?? []) {
-      registrosHoy[r.rutina_ejercicio_id] = r
+    for (const r of diaData ?? []) {
+      registrosDia[r.rutina_ejercicio_id] = r
     }
   }
 
-  // Bienestar de hoy
+  // Bienestar de la fecha seleccionada
   const { data: bienestarRaw } = await supabase
     .from('registros_bienestar')
     .select('descanso, notas')
     .eq('alumno_id', alumnoId)
-    .eq('fecha', fechaHoy)
+    .eq('fecha', fecha)
     .maybeSingle() as { data: { descanso: number; notas: string | null } | null }
 
   const ejerciciosHoy: EjercicioHoyData[] = (diaHoy?.ejercicios ?? [])
@@ -106,7 +115,7 @@ async function getDatosDia(alumnoId: string) {
       notas: re.notas,
       ultimoPeso: ultimosRegistros[re.id]?.peso ?? null,
       ultimasReps: ultimosRegistros[re.id]?.reps ?? null,
-      registroHoy: registrosHoy[re.id] ?? null,
+      registroHoy: registrosDia[re.id] ?? null,
     }))
 
   const semana: SemanaItem[] = DIAS_SEMANA.map((dia) => {
@@ -125,14 +134,19 @@ async function getDatosDia(alumnoId: string) {
     esDescanso,
     ejerciciosHoy,
     semana,
-    hechos: Object.keys(registrosHoy).length,
+    hechos: Object.keys(registrosDia).length,
     bienestarHoy: bienestarRaw ?? null,
+    diaDelFecha,
   }
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default async function RutinaHoyPage() {
+interface PageProps {
+  searchParams: Promise<{ fecha?: string }>
+}
+
+export default async function RutinaHoyPage({ searchParams }: PageProps) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -142,9 +156,16 @@ export default async function RutinaHoyPage() {
   )
   if (!profile) redirect('/login')
 
-  const hoy = getDiaHoy() as DiaSemana
-  const { rutina, diaHoyNombre, esDescanso, ejerciciosHoy, semana, hechos, bienestarHoy } =
-    await getDatosDia(profile.id)
+  // Determinar fecha a mostrar
+  const { fecha: fechaParam } = await searchParams
+  const hoyStr = new Date().toISOString().split('T')[0]
+  const fecha = fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) && fechaParam <= hoyStr
+    ? fechaParam
+    : hoyStr
+  const esHoy = fecha === hoyStr
+
+  const { rutina, diaHoyNombre, esDescanso, ejerciciosHoy, semana, hechos, bienestarHoy, diaDelFecha } =
+    await getDatosDia(profile.id, fecha)
 
   if (!rutina) {
     return (
@@ -158,11 +179,10 @@ export default async function RutinaHoyPage() {
     )
   }
 
-  const diaLabel = DIAS_LABELS[hoy]
+  const diaLabel = diaDelFecha ? DIAS_LABELS[diaDelFecha] : ''
   const totalEjercicios = ejerciciosHoy.length
   const completados = hechos ?? 0
 
-  // RPE promedio de la sesión (solo ejercicios ya registrados hoy con RPE)
   const rpeValues = ejerciciosHoy
     .filter((e) => e.registroHoy?.rpe != null)
     .map((e) => e.registroHoy!.rpe as number)
@@ -172,6 +192,9 @@ export default async function RutinaHoyPage() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6 space-y-4">
+
+      {/* Navegador de fecha */}
+      <DateNav fecha={fecha} />
 
       {/* Header del día */}
       <div className="rounded-2xl bg-slate-900 px-5 py-5 text-white">
@@ -206,7 +229,7 @@ export default async function RutinaHoyPage() {
         )}
       </div>
 
-      {/* Encuesta de sueño (siempre visible) */}
+      {/* Encuesta de sueño */}
       <BienestarCard registroHoy={bienestarHoy} />
 
       {/* Día de descanso */}
@@ -216,19 +239,18 @@ export default async function RutinaHoyPage() {
           <div>
             <p className="text-lg font-bold text-slate-900">Día de descanso</p>
             <p className="mt-1 text-sm text-slate-500">
-              Hoy no hay entrenamiento. ¡Recuperate bien!
+              {esHoy ? '¡Recuperate bien!' : 'Este día era de descanso.'}
             </p>
           </div>
         </div>
       ) : ejerciciosHoy.length === 0 ? (
-        /* Sin ejercicios hoy */
         <div className="space-y-4">
           <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-6 py-10 text-center shadow-sm ring-1 ring-slate-100">
             <PartyPopper className="h-12 w-12 text-yellow-400" />
             <div>
-              <p className="text-lg font-bold text-slate-900">¡Día de descanso!</p>
+              <p className="text-lg font-bold text-slate-900">Sin ejercicios</p>
               <p className="mt-1 text-sm text-slate-500">
-                No tenés ejercicios programados para hoy.
+                No hay ejercicios programados para este día.
               </p>
             </div>
           </div>
@@ -241,10 +263,10 @@ export default async function RutinaHoyPage() {
             {semana.map(({ dia, nombre, cantEjercicios, esDescanso: esDes }) => (
               <div
                 key={dia}
-                className={`flex items-center justify-between px-4 py-3 ${dia === hoy ? 'bg-blue-50' : ''}`}
+                className={`flex items-center justify-between px-4 py-3 ${dia === diaDelFecha ? 'bg-blue-50' : ''}`}
               >
                 <div className="flex items-center gap-3">
-                  <span className={`text-sm font-medium ${dia === hoy ? 'text-blue-700' : 'text-slate-700'}`}>
+                  <span className={`text-sm font-medium ${dia === diaDelFecha ? 'text-blue-700' : 'text-slate-700'}`}>
                     {DIAS_LABELS[dia]}
                   </span>
                   {nombre && <span className="text-xs text-slate-600">{nombre}</span>}
@@ -263,22 +285,25 @@ export default async function RutinaHoyPage() {
           </div>
         </div>
       ) : (
-        /* Lista de ejercicios */
         <>
           {completados === totalEjercicios && totalEjercicios > 0 && (
             <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 px-4 py-3 ring-1 ring-emerald-200">
               <PartyPopper className="h-5 w-5 shrink-0 text-emerald-600" />
               <p className="text-sm font-semibold text-emerald-800">
-                ¡Sesión completa! Buen trabajo 💪
+                {esHoy ? '¡Sesión completa! Buen trabajo 💪' : 'Sesión registrada ✓'}
               </p>
             </div>
           )}
 
           {ejerciciosHoy.map((ej, i) => (
-            <EjercicioHoyCard key={ej.rutinaEjercicioId} ejercicio={ej} index={i} />
+            <EjercicioHoyCard
+              key={ej.rutinaEjercicioId}
+              ejercicio={ej}
+              index={i}
+              fecha={fecha}
+            />
           ))}
 
-          {/* RPE promedio de sesión */}
           {rpePromedio !== null && (
             <div className="rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100 flex items-center justify-between">
               <span className="text-sm text-slate-500">RPE promedio de sesión</span>

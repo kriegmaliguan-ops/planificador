@@ -10,6 +10,7 @@ export async function registrarProgreso(data: {
   pesoUtilizado: number | null
   rpe: number | null
   notas: string | null
+  fecha?: string
 }): Promise<{ error?: string; success?: boolean }> {
   const supabase = await createClient()
 
@@ -18,7 +19,7 @@ export async function registrarProgreso(data: {
   } = await supabase.auth.getUser()
   if (!user) return { error: 'No autenticado.' }
 
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = data.fecha ?? new Date().toISOString().split('T')[0]
 
   // Verificar si ya hay un registro hoy para este ejercicio
   const { data: existente } = await supabase
@@ -59,7 +60,7 @@ export async function registrarProgreso(data: {
     if (error) return { error: 'Error al guardar el registro.' }
   }
 
-  revalidatePath('/rutina')
+  revalidatePath('/rutina', 'page')
   revalidatePath('/progreso')
   return { success: true }
 }

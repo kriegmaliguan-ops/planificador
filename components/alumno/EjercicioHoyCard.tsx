@@ -31,9 +31,10 @@ export interface EjercicioHoyData {
 interface EjercicioHoyCardProps {
   ejercicio: EjercicioHoyData
   index: number
+  fecha?: string
 }
 
-export function EjercicioHoyCard({ ejercicio, index }: EjercicioHoyCardProps) {
+export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardProps) {
   const yaHecho = !!ejercicio.registroHoy
   const [isPending, startTransition] = useTransition()
   const [guardado, setGuardado] = useState(yaHecho)
@@ -59,6 +60,7 @@ export function EjercicioHoyCard({ ejercicio, index }: EjercicioHoyCardProps) {
         pesoUtilizado: form.peso !== '' ? Number(form.peso) : null,
         rpe: form.rpe !== '' ? Number(form.rpe) : null,
         notas: form.notas || null,
+        fecha,
       })
       if (result.error) {
         setError(result.error)
