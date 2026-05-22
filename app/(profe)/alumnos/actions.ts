@@ -10,9 +10,14 @@ interface CrearAlumnoData {
   email: string
 }
 
+function generarPasswordTemporal(): string {
+  const num = Math.floor(1000 + Math.random() * 9000)
+  return `Rutina${num}`
+}
+
 export async function crearAlumno(
   formData: FormData
-): Promise<{ error?: string; success?: boolean }> {
+): Promise<{ error?: string; success?: boolean; tempPassword?: string; email?: string }> {
   const nombre = (formData.get('nombre') as string)?.trim()
   const apellido = (formData.get('apellido') as string)?.trim()
   const email = (formData.get('email') as string)?.trim().toLowerCase()
@@ -23,22 +28,22 @@ export async function crearAlumno(
 
   try {
     const supabase = createAdminClient()
+    const tempPassword = generarPasswordTemporal()
 
-    // Invitar al alumno por email — Supabase envía el link de activación
-    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
-      data: {
+    // Crear usuario directamente con contraseña temporal (sin email)
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: {
         nombre,
         apellido: apellido || null,
         role: 'alumno',
       },
-      redirectTo: `${
-        process.env.NEXT_PUBLIC_APP_URL ??
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-      }/auth/callback?next=/auth/nueva-contrasena`,
     })
 
     if (error) {
-      if (error.message.includes('already been registered')) {
+      if (error.message.includes('already been registered') || error.message.includes('already exists')) {
         return { error: 'Ya existe un usuario con ese email.' }
       }
       return { error: `Error al crear el alumno: ${error.message}` }
@@ -66,7 +71,7 @@ export async function crearAlumno(
     revalidatePath('/alumnos')
     revalidatePath('/dashboard')
 
-    return { success: true }
+    return { success: true, tempPassword, email }
   } catch (err) {
     console.error('crearAlumno error:', err)
     return { error: 'Error inesperado. Revisá que SUPABASE_SERVICE_ROLE_KEY esté configurada.' }
