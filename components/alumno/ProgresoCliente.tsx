@@ -1,14 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { TrendingUp, Dumbbell, ChevronDown, ChevronUp, Moon, Zap } from 'lucide-react'
+import { TrendingUp, Dumbbell, ChevronDown, ChevronUp, Moon, Zap, Scale } from 'lucide-react'
 import { grupoColor, DESCANSO_CONFIG, RPE_CONFIG } from '@/lib/utils'
+import { PesoCard } from '@/components/alumno/PesoCard'
 import type {
   DatosEstadisticas,
   PuntoTemporal,
   SesionHistorial,
   RegistroHistorial,
   RegistroBienestar,
+  RegistroPeso,
 } from '@/app/(alumno)/progreso/page'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -200,6 +202,120 @@ function SuenoTab({ bienestar }: { bienestar: RegistroBienestar[] }) {
   )
 }
 
+// ── Peso Tab ──────────────────────────────────────────────────────────────────
+
+function PesoTab({
+  pesos,
+  pesoHoy,
+}: {
+  pesos: RegistroPeso[]
+  pesoHoy?: { peso_kg: number; notas: string | null } | null
+}) {
+  // Ordenados de más reciente a más antiguo
+  const sorted = [...pesos].sort((a, b) => b.fecha.localeCompare(a.fecha))
+
+  const pesoActual = sorted[0]?.peso_kg ?? null
+  const pesoInicial = sorted.length > 1 ? sorted[sorted.length - 1].peso_kg : null
+  const variacion =
+    pesoActual !== null && pesoInicial !== null
+      ? Math.round((pesoActual - pesoInicial) * 10) / 10
+      : null
+
+  return (
+    <div className="space-y-4">
+      {/* Card de registro — solo visible para el alumno (pesoHoy no es undefined) */}
+      {pesoHoy !== undefined && (
+        <PesoCard registroHoy={pesoHoy} />
+      )}
+
+      {sorted.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 rounded-2xl bg-white px-6 py-12 text-center ring-1 ring-slate-100">
+          <Scale className="h-12 w-12 text-slate-200" />
+          <p className="text-sm text-slate-400">Aún no hay registros de peso.</p>
+          <p className="text-xs text-slate-400">Registrá tu primer peso arriba.</p>
+        </div>
+      ) : (
+        <>
+          {/* Stats rápidas */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-2xl bg-white px-3 py-3 text-center ring-1 ring-slate-100">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Actual</p>
+              <p className="mt-1 text-lg font-bold text-slate-900">
+                {pesoActual} <span className="text-xs font-normal text-slate-400">kg</span>
+              </p>
+            </div>
+            <div className="rounded-2xl bg-white px-3 py-3 text-center ring-1 ring-slate-100">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Inicial</p>
+              <p className="mt-1 text-lg font-bold text-slate-900">
+                {pesoInicial ?? pesoActual} <span className="text-xs font-normal text-slate-400">kg</span>
+              </p>
+            </div>
+            <div className={`rounded-2xl px-3 py-3 text-center ring-1 ${
+              variacion === null ? 'bg-white ring-slate-100'
+              : variacion > 0 ? 'bg-orange-50 ring-orange-200'
+              : variacion < 0 ? 'bg-emerald-50 ring-emerald-200'
+              : 'bg-slate-50 ring-slate-100'
+            }`}>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Cambio</p>
+              <p className={`mt-1 text-lg font-bold ${
+                variacion === null ? 'text-slate-400'
+                : variacion > 0 ? 'text-orange-600'
+                : variacion < 0 ? 'text-emerald-600'
+                : 'text-slate-500'
+              }`}>
+                {variacion === null ? '—'
+                  : `${variacion > 0 ? '+' : ''}${variacion}`}{' '}
+                {variacion !== null && <span className="text-xs font-normal opacity-70">kg</span>}
+              </p>
+            </div>
+          </div>
+
+          {/* Historial */}
+          <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+            <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
+              <Scale className="h-4 w-4 text-slate-400" />
+              <p className="text-sm font-semibold text-slate-700">Historial de peso</p>
+              <span className="ml-auto text-xs text-slate-400">{sorted.length} registros</span>
+            </div>
+            <div className="divide-y divide-slate-50">
+              {sorted.map((p, i) => {
+                const prev = sorted[i + 1]
+                const delta = prev
+                  ? Math.round((p.peso_kg - prev.peso_kg) * 10) / 10
+                  : null
+                return (
+                  <div key={p.fecha} className="flex items-center gap-3 px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-800 capitalize">
+                        {formatFechaCorta(p.fecha)}
+                      </p>
+                      {p.notas && (
+                        <p className="mt-0.5 text-xs text-slate-500 italic truncate">"{p.notas}"</p>
+                      )}
+                    </div>
+                    {delta !== null && (
+                      <span className={`text-xs font-semibold shrink-0 ${
+                        delta > 0 ? 'text-orange-500'
+                        : delta < 0 ? 'text-emerald-500'
+                        : 'text-slate-400'
+                      }`}>
+                        {delta > 0 ? '↑' : delta < 0 ? '↓' : '='}{Math.abs(delta) > 0 ? ` ${Math.abs(delta).toFixed(1)}` : ''}
+                      </span>
+                    )}
+                    <span className="shrink-0 text-sm font-bold text-slate-900">
+                      {p.peso_kg} kg
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ── Historial Tab ─────────────────────────────────────────────────────────────
 
 function HistorialTab({ historial, totalRegistros }: { historial: SesionHistorial[]; totalRegistros: number }) {
@@ -296,11 +412,14 @@ interface Props {
   estadisticas: DatosEstadisticas
   historial: SesionHistorial[]
   bienestar?: RegistroBienestar[]
+  pesos?: RegistroPeso[]
+  /** undefined = vista del profe (sin card de registro); null = alumno sin registro hoy */
+  pesoHoy?: { peso_kg: number; notas: string | null } | null
   totalRegistros: number
 }
 
-export function ProgresoCliente({ estadisticas, historial, bienestar = [], totalRegistros }: Props) {
-  const [tab, setTab] = useState<'estadisticas' | 'sueno' | 'historial'>('estadisticas')
+export function ProgresoCliente({ estadisticas, historial, bienestar = [], pesos = [], pesoHoy, totalRegistros }: Props) {
+  const [tab, setTab] = useState<'estadisticas' | 'sueno' | 'peso' | 'historial'>('estadisticas')
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6 space-y-4">
@@ -322,35 +441,28 @@ export function ProgresoCliente({ estadisticas, historial, bienestar = [], total
       </div>
 
       {/* Tabs */}
-      <div className="flex rounded-xl bg-slate-100 p-1">
-        <button
-          onClick={() => setTab('estadisticas')}
-          className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
-            tab === 'estadisticas' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
-          }`}
-        >
-          RPE
-        </button>
-        <button
-          onClick={() => setTab('sueno')}
-          className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
-            tab === 'sueno' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
-          }`}
-        >
-          Sueño
-        </button>
-        <button
-          onClick={() => setTab('historial')}
-          className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
-            tab === 'historial' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
-          }`}
-        >
-          Historial
-        </button>
+      <div className="flex rounded-xl bg-slate-100 p-1 gap-0.5">
+        {([
+          ['estadisticas', 'RPE'],
+          ['sueno', 'Sueño'],
+          ['peso', 'Peso'],
+          ['historial', 'Historial'],
+        ] as const).map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setTab(id)}
+            className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-colors ${
+              tab === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {tab === 'estadisticas' && <EstadisticasTab estadisticas={estadisticas} />}
       {tab === 'sueno' && <SuenoTab bienestar={bienestar} />}
+      {tab === 'peso' && <PesoTab pesos={pesos} pesoHoy={pesoHoy} />}
       {tab === 'historial' && <HistorialTab historial={historial} totalRegistros={totalRegistros} />}
     </div>
   )

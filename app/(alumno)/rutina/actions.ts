@@ -94,3 +94,38 @@ export async function registrarBienestar(data: {
   revalidatePath('/progreso')
   return { success: true }
 }
+
+// ── Registrar peso corporal ───────────────────────────────────────────────────
+
+export async function registrarPeso(data: {
+  pesoKg: number
+  notas: string | null
+  fecha?: string
+}): Promise<{ error?: string; success?: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+
+  const hoy = data.fecha ?? getHoyChile()
+
+  const { data: existente } = await supabase
+    .from('registros_peso')
+    .select('id')
+    .eq('alumno_id', user.id)
+    .eq('fecha', hoy)
+    .maybeSingle() as { data: { id: string } | null }
+
+  if (existente) {
+    const { error } = await (supabase.from('registros_peso') as any)
+      .update({ peso_kg: data.pesoKg, notas: data.notas })
+      .eq('id', existente.id)
+    if (error) return { error: 'Error al actualizar el peso.' }
+  } else {
+    const { error } = await (supabase.from('registros_peso') as any)
+      .insert({ alumno_id: user.id, fecha: hoy, peso_kg: data.pesoKg, notas: data.notas })
+    if (error) return { error: 'Error al guardar el peso.' }
+  }
+
+  revalidatePath('/progreso')
+  return { success: true }
+}

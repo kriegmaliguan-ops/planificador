@@ -9,6 +9,7 @@ import type {
   SesionHistorial,
   RegistroHistorial,
   PuntoTemporal,
+  RegistroPeso,
 } from '@/app/(alumno)/progreso/page'
 
 // ── Helpers (duplicados del alumno/progreso para el lado profe) ───────────────
@@ -93,7 +94,7 @@ async function getDatos(alumnoId: string) {
   desde.setDate(desde.getDate() - 180)
   const desdeStr = desde.toISOString().split('T')[0]
 
-  const [bienestarResult, progresoResult] = await Promise.all([
+  const [bienestarResult, progresoResult, pesoResult] = await Promise.all([
     supabase
       .from('registros_bienestar')
       .select('fecha, descanso, notas')
@@ -112,10 +113,17 @@ async function getDatos(alumnoId: string) {
       .gte('fecha', desdeStr)
       .order('fecha', { ascending: false })
       .order('created_at', { ascending: true }) as unknown as Promise<{ data: any[] | null }>,
+    supabase
+      .from('registros_peso')
+      .select('fecha, peso_kg, notas')
+      .eq('alumno_id', alumnoId)
+      .gte('fecha', desdeStr)
+      .order('fecha', { ascending: false }) as unknown as Promise<{ data: any[] | null }>,
   ])
 
   const bienestar = (bienestarResult.data ?? []) as { fecha: string; descanso: number; notas: string | null }[]
   const progreso = (progresoResult.data ?? []) as any[]
+  const pesos = (pesoResult.data ?? []) as RegistroPeso[]
   const rpeRecords = progreso.filter((r) => r.rpe !== null).map((r) => ({ fecha: r.fecha, rpe: r.rpe as number }))
 
   const estadisticas: DatosEstadisticas = {
@@ -141,7 +149,7 @@ async function getDatos(alumnoId: string) {
   }
   const historial: SesionHistorial[] = Array.from(sesionesMap.entries()).map(([fecha, registros]) => ({ fecha, registros }))
 
-  return { estadisticas, historial, totalRegistros: progreso.length }
+  return { estadisticas, historial, pesos, totalRegistros: progreso.length }
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -163,7 +171,7 @@ export default async function ProgresoAlumnoPage({ params }: Props) {
 
   if (!alumno) notFound()
 
-  const { estadisticas, historial, totalRegistros } = await getDatos(id)
+  const { estadisticas, historial, pesos, totalRegistros } = await getDatos(id)
 
   return (
     <div className="px-4 py-6 md:p-8 max-w-4xl">
@@ -179,9 +187,11 @@ export default async function ProgresoAlumnoPage({ params }: Props) {
         Progreso de {alumno.nombre}
       </h1>
 
+      {/* pesoHoy omitido → vista solo lectura (sin card de registro) */}
       <ProgresoCliente
         estadisticas={estadisticas}
         historial={historial}
+        pesos={pesos}
         totalRegistros={totalRegistros}
       />
     </div>

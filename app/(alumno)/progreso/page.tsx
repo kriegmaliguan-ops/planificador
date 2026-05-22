@@ -43,6 +43,12 @@ export interface RegistroBienestar {
   notas: string | null
 }
 
+export interface RegistroPeso {
+  fecha: string
+  peso_kg: number
+  notas: string | null
+}
+
 // ── Helpers de agregación ─────────────────────────────────────────────────────
 
 function avgOrNull(nums: number[]): number | null {
@@ -158,7 +164,7 @@ async function getDatos(alumnoId: string) {
   desde.setDate(desde.getDate() - 180)
   const desdeStr = `${desde.getFullYear()}-${String(desde.getMonth() + 1).padStart(2, '0')}-${String(desde.getDate()).padStart(2, '0')}`
 
-  const [bienestarResult, progresoResult] = await Promise.all([
+  const [bienestarResult, progresoResult, pesoResult] = await Promise.all([
     supabase
       .from('registros_bienestar')
       .select('fecha, descanso, notas')
@@ -180,10 +186,17 @@ async function getDatos(alumnoId: string) {
       .gte('fecha', desdeStr)
       .order('fecha', { ascending: false })
       .order('created_at', { ascending: true }) as unknown as Promise<{ data: any[] | null }>,
+    supabase
+      .from('registros_peso')
+      .select('fecha, peso_kg, notas')
+      .eq('alumno_id', alumnoId)
+      .gte('fecha', desdeStr)
+      .order('fecha', { ascending: false }) as unknown as Promise<{ data: any[] | null }>,
   ])
 
   const bienestar = (bienestarResult.data ?? []) as RegistroBienestar[]
   const progreso = (progresoResult.data ?? []) as any[]
+  const pesos = (pesoResult.data ?? []) as RegistroPeso[]
 
   // RPE records (solo los que tienen rpe)
   const rpeRecords = progreso.filter((r) => r.rpe !== null).map((r) => ({
@@ -219,7 +232,7 @@ async function getDatos(alumnoId: string) {
     registros,
   }))
 
-  return { estadisticas, historial, bienestar, totalRegistros: progreso.length }
+  return { estadisticas, historial, bienestar, pesos, totalRegistros: progreso.length }
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -234,13 +247,22 @@ export default async function ProgresoPage() {
   )
   if (!profile) redirect('/login')
 
-  const { estadisticas, historial, bienestar, totalRegistros } = await getDatos(profile.id)
+  const hoy = getHoyChile()
+  const { estadisticas, historial, bienestar, pesos, totalRegistros } = await getDatos(profile.id)
+
+  // Peso de hoy (null = no registrado aún, undefined = no se muestra el card)
+  const pesoHoyRaw = pesos.find((p) => p.fecha === hoy)
+  const pesoHoy = pesoHoyRaw
+    ? { peso_kg: pesoHoyRaw.peso_kg, notas: pesoHoyRaw.notas }
+    : null
 
   return (
     <ProgresoCliente
       estadisticas={estadisticas}
       historial={historial}
       bienestar={bienestar}
+      pesos={pesos}
+      pesoHoy={pesoHoy}
       totalRegistros={totalRegistros}
     />
   )
