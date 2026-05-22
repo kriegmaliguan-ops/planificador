@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { getHoyChile } from '@/lib/utils'
 import { ProgresoCliente } from '@/components/alumno/ProgresoCliente'
 import type { GrupoMuscular } from '@/lib/types/database'
 import type {
@@ -12,87 +13,82 @@ import type {
   RegistroPeso,
 } from '@/app/(alumno)/progreso/page'
 
-// ── Helpers (duplicados del alumno/progreso para el lado profe) ───────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function avgOrNull(nums: number[]): number | null {
   if (!nums.length) return null
   return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10
 }
 
-function getISOWeekKey(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00')
-  const day = d.getDay() || 7
-  d.setDate(d.getDate() + 4 - day)
-  const year = d.getFullYear()
-  const week = Math.ceil(((d.getTime() - new Date(year, 0, 1).getTime()) / 86400000 + 1) / 7)
-  return `${year}-W${String(week).padStart(2, '0')}`
+function addDays(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d + days)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function getLunes(hoy: string): string {
+  const [y, m, d] = hoy.split('-').map(Number)
+  const jsDay = new Date(y, m - 1, d).getDay()
+  return addDays(hoy, jsDay === 0 ? -6 : -(jsDay - 1))
 }
 
 function buildDiario(
+  hoy: string,
   bienestar: { fecha: string; descanso: number }[],
   rpe: { fecha: string; rpe: number }[]
 ): PuntoTemporal[] {
-  const hoy = new Date()
-  return Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(hoy)
-    d.setDate(d.getDate() - (13 - i))
-    const key = d.toISOString().split('T')[0]
-    const label = d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' })
+  return Array.from({ length: 7 }, (_, i) => {
+    const key = addDays(hoy, -(6 - i))
+    const date = new Date(key + 'T12:00:00')
+    const label = date.toLocaleDateString('es-AR', { weekday: 'short' })
+      .replace('.', '').substring(0, 2).toUpperCase()
     const b = bienestar.find((x) => x.fecha === key)
     const rpeDay = rpe.filter((x) => x.fecha === key).map((x) => x.rpe)
-    return { label, descanso: b?.descanso ?? null, rpe: avgOrNull(rpeDay), sesiones: rpeDay.length > 0 ? 1 : 0 }
+    return { label, fecha: key, rpe: avgOrNull(rpeDay), descanso: b?.descanso ?? null, sesiones: rpeDay.length, esHoy: key === hoy }
   })
 }
 
 function buildSemanal(
+  hoy: string,
   bienestar: { fecha: string; descanso: number }[],
   rpe: { fecha: string; rpe: number }[]
 ): PuntoTemporal[] {
-  const hoy = new Date()
-  const semanas: string[] = []
-  for (let i = 7; i >= 0; i--) {
-    const d = new Date(hoy)
-    d.setDate(d.getDate() - i * 7)
-    semanas.push(getISOWeekKey(d.toISOString().split('T')[0]))
-  }
-  const unique = [...new Set(semanas)].slice(-8)
-  return unique.map((wk, i) => {
-    const b = bienestar.filter((x) => getISOWeekKey(x.fecha) === wk).map((x) => x.descanso)
-    const r = rpe.filter((x) => getISOWeekKey(x.fecha) === wk).map((x) => x.rpe)
-    return {
-      label: `Sem ${i + 1}`,
-      descanso: avgOrNull(b),
-      rpe: avgOrNull(r),
-      sesiones: new Set(rpe.filter((x) => getISOWeekKey(x.fecha) === wk).map((x) => x.fecha)).size,
-    }
+  const LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+  const lunes = getLunes(hoy)
+  return Array.from({ length: 7 }, (_, i) => {
+    const key = addDays(lunes, i)
+    const b = bienestar.find((x) => x.fecha === key)
+    const rpeDay = rpe.filter((x) => x.fecha === key).map((x) => x.rpe)
+    return { label: LABELS[i], fecha: key, rpe: avgOrNull(rpeDay), descanso: b?.descanso ?? null, sesiones: rpeDay.length, esHoy: key === hoy }
   })
 }
 
 function buildMensual(
+  hoy: string,
   bienestar: { fecha: string; descanso: number }[],
   rpe: { fecha: string; rpe: number }[]
 ): PuntoTemporal[] {
-  const hoy = new Date()
-  return Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(hoy.getFullYear(), hoy.getMonth() - (5 - i), 1)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    const label = d.toLocaleDateString('es-AR', { month: 'short' })
-    const b = bienestar.filter((x) => x.fecha.startsWith(key)).map((x) => x.descanso)
-    const r = rpe.filter((x) => x.fecha.startsWith(key)).map((x) => x.rpe)
+  const lunes = getLunes(hoy)
+  return Array.from({ length: 8 }, (_, i) => {
+    const weekStart = addDays(lunes, -7 * (7 - i))
+    const dates = Array.from({ length: 7 }, (_, j) => addDays(weekStart, j))
+    const rpeW = rpe.filter((x) => dates.includes(x.fecha)).map((x) => x.rpe)
+    const bW = bienestar.filter((x) => dates.includes(x.fecha)).map((x) => x.descanso)
+    const [, wm, wd] = weekStart.split('-').map(Number)
     return {
-      label,
-      descanso: avgOrNull(b),
-      rpe: avgOrNull(r),
-      sesiones: new Set(rpe.filter((x) => x.fecha.startsWith(key)).map((x) => x.fecha)).size,
+      label: `${wd}/${wm}`,
+      fecha: weekStart,
+      rpe: avgOrNull(rpeW),
+      descanso: avgOrNull(bW),
+      sesiones: new Set(rpe.filter((x) => dates.includes(x.fecha)).map((x) => x.fecha)).size,
+      esHoy: dates.includes(hoy),
     }
   })
 }
 
-async function getDatos(alumnoId: string) {
+async function getDatos(alumnoId: string, hoy: string) {
   const supabase = await createClient()
-  const desde = new Date()
-  desde.setDate(desde.getDate() - 180)
-  const desdeStr = desde.toISOString().split('T')[0]
+  const desdeStr = addDays(hoy, -180)
 
   const [bienestarResult, progresoResult, pesoResult] = await Promise.all([
     supabase
@@ -127,9 +123,9 @@ async function getDatos(alumnoId: string) {
   const rpeRecords = progreso.filter((r) => r.rpe !== null).map((r) => ({ fecha: r.fecha, rpe: r.rpe as number }))
 
   const estadisticas: DatosEstadisticas = {
-    diario: buildDiario(bienestar, rpeRecords),
-    semanal: buildSemanal(bienestar, rpeRecords),
-    mensual: buildMensual(bienestar, rpeRecords),
+    diario: buildDiario(hoy, bienestar, rpeRecords),
+    semanal: buildSemanal(hoy, bienestar, rpeRecords),
+    mensual: buildMensual(hoy, bienestar, rpeRecords),
   }
 
   const sesionesMap = new Map<string, RegistroHistorial[]>()
@@ -171,7 +167,8 @@ export default async function ProgresoAlumnoPage({ params }: Props) {
 
   if (!alumno) notFound()
 
-  const { estadisticas, historial, pesos, totalRegistros } = await getDatos(id)
+  const hoy = getHoyChile()
+  const { estadisticas, historial, pesos, totalRegistros } = await getDatos(id, hoy)
 
   return (
     <div className="px-4 py-6 md:p-8 max-w-4xl">

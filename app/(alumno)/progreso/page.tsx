@@ -9,9 +9,11 @@ import type { Profile, GrupoMuscular } from '@/lib/types/database'
 
 export interface PuntoTemporal {
   label: string
-  descanso: number | null
+  fecha: string
   rpe: number | null
+  descanso: number | null
   sesiones: number
+  esHoy: boolean
 }
 
 export interface DatosEstadisticas {
@@ -56,113 +58,81 @@ function avgOrNull(nums: number[]): number | null {
   return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10
 }
 
-function getHoyDate(): Date {
-  // Fecha de hoy en Chile, parseada como Date local
-  const hoy = getHoyChile()
-  const [y, m, d] = hoy.split('-').map(Number)
-  return new Date(y, m - 1, d)
+function addDays(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d + days)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
+/** Lunes de la semana que contiene `hoy` */
+function getLunes(hoy: string): string {
+  const [y, m, d] = hoy.split('-').map(Number)
+  const jsDay = new Date(y, m - 1, d).getDay() // 0=dom
+  return addDays(hoy, jsDay === 0 ? -6 : -(jsDay - 1))
+}
+
+/** Diario: últimos 7 días, hoy resaltado */
 function buildDiario(
+  hoy: string,
   bienestar: { fecha: string; descanso: number }[],
   rpe: { fecha: string; rpe: number }[]
 ): PuntoTemporal[] {
-  const hoy = getHoyDate()
-  return Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(hoy)
-    d.setDate(d.getDate() - (13 - i))
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const label = d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' })
+  return Array.from({ length: 7 }, (_, i) => {
+    const key = addDays(hoy, -(6 - i))
+    const date = new Date(key + 'T12:00:00')
+    const label = date.toLocaleDateString('es-AR', { weekday: 'short' })
+      .replace('.', '').substring(0, 2).toUpperCase()
     const b = bienestar.find((x) => x.fecha === key)
     const rpeDay = rpe.filter((x) => x.fecha === key).map((x) => x.rpe)
-    return {
-      label,
-      descanso: b?.descanso ?? null,
-      rpe: avgOrNull(rpeDay),
-      sesiones: rpeDay.length > 0 ? 1 : 0,
-    }
+    return { label, fecha: key, rpe: avgOrNull(rpeDay), descanso: b?.descanso ?? null, sesiones: rpeDay.length, esHoy: key === hoy }
   })
 }
 
-function getISOWeekKey(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00')
-  const day = d.getDay() || 7
-  d.setDate(d.getDate() + 4 - day)
-  const year = d.getFullYear()
-  const week = Math.ceil(((d.getTime() - new Date(year, 0, 1).getTime()) / 86400000 + 1) / 7)
-  return `${year}-W${String(week).padStart(2, '0')}`
-}
-
-function weekKeyToMonday(wk: string): Date {
-  const [yearStr, weekStr] = wk.split('-W')
-  const year = Number(yearStr)
-  const week = Number(weekStr)
-  const jan4 = new Date(year, 0, 4)
-  const dayOfWeek = (jan4.getDay() + 6) % 7
-  const monday = new Date(jan4)
-  monday.setDate(jan4.getDate() - dayOfWeek + (week - 1) * 7)
-  return monday
-}
-
+/** Semanal: lunes a domingo de la semana actual, días de descanso naturalmente vacíos */
 function buildSemanal(
+  hoy: string,
   bienestar: { fecha: string; descanso: number }[],
   rpe: { fecha: string; rpe: number }[]
 ): PuntoTemporal[] {
-  const hoy = getHoyDate()
-  const hoyStr = getHoyChile()
-  const currentWeek = getISOWeekKey(hoyStr)
-  const semanas: string[] = []
-  for (let i = 7; i >= 0; i--) {
-    const d = new Date(hoy)
-    d.setDate(d.getDate() - i * 7)
-    const str = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    semanas.push(getISOWeekKey(str))
-  }
-  const unique = [...new Set(semanas)].slice(-8)
-
-  return unique.map((wk) => {
-    const b = bienestar.filter((x) => getISOWeekKey(x.fecha) === wk).map((x) => x.descanso)
-    const r = rpe.filter((x) => getISOWeekKey(x.fecha) === wk).map((x) => x.rpe)
-    const monday = weekKeyToMonday(wk)
-    const label = wk === currentWeek
-      ? 'Hoy'
-      : monday.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
-    return {
-      label,
-      descanso: avgOrNull(b),
-      rpe: avgOrNull(r),
-      sesiones: new Set(rpe.filter((x) => getISOWeekKey(x.fecha) === wk).map((x) => x.fecha)).size,
-    }
+  const LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+  const lunes = getLunes(hoy)
+  return Array.from({ length: 7 }, (_, i) => {
+    const key = addDays(lunes, i)
+    const b = bienestar.find((x) => x.fecha === key)
+    const rpeDay = rpe.filter((x) => x.fecha === key).map((x) => x.rpe)
+    return { label: LABELS[i], fecha: key, rpe: avgOrNull(rpeDay), descanso: b?.descanso ?? null, sesiones: rpeDay.length, esHoy: key === hoy }
   })
 }
 
+/** Mensual: últimas 8 semanas, RPE promedio por semana */
 function buildMensual(
+  hoy: string,
   bienestar: { fecha: string; descanso: number }[],
   rpe: { fecha: string; rpe: number }[]
 ): PuntoTemporal[] {
-  const hoy = getHoyDate()
-  return Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(hoy.getFullYear(), hoy.getMonth() - (5 - i), 1)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    const label = d.toLocaleDateString('es-AR', { month: 'short' })
-    const b = bienestar.filter((x) => x.fecha.startsWith(key)).map((x) => x.descanso)
-    const r = rpe.filter((x) => x.fecha.startsWith(key)).map((x) => x.rpe)
+  const lunes = getLunes(hoy)
+  return Array.from({ length: 8 }, (_, i) => {
+    const weekStart = addDays(lunes, -7 * (7 - i))
+    const dates = Array.from({ length: 7 }, (_, j) => addDays(weekStart, j))
+    const rpeW = rpe.filter((x) => dates.includes(x.fecha)).map((x) => x.rpe)
+    const bW = bienestar.filter((x) => dates.includes(x.fecha)).map((x) => x.descanso)
+    const [, wm, wd] = weekStart.split('-').map(Number)
     return {
-      label,
-      descanso: avgOrNull(b),
-      rpe: avgOrNull(r),
-      sesiones: new Set(rpe.filter((x) => x.fecha.startsWith(key)).map((x) => x.fecha)).size,
+      label: `${wd}/${wm}`,
+      fecha: weekStart,
+      rpe: avgOrNull(rpeW),
+      descanso: avgOrNull(bW),
+      sesiones: new Set(rpe.filter((x) => dates.includes(x.fecha)).map((x) => x.fecha)).size,
+      esHoy: dates.includes(hoy),
     }
   })
 }
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 
-async function getDatos(alumnoId: string) {
+async function getDatos(alumnoId: string, hoy: string) {
   const supabase = await createClient()
-  const desde = getHoyDate()
-  desde.setDate(desde.getDate() - 180)
-  const desdeStr = `${desde.getFullYear()}-${String(desde.getMonth() + 1).padStart(2, '0')}-${String(desde.getDate()).padStart(2, '0')}`
+  const desdeStr = addDays(hoy, -180)
 
   const [bienestarResult, progresoResult, pesoResult] = await Promise.all([
     supabase
@@ -206,9 +176,9 @@ async function getDatos(alumnoId: string) {
 
   // Estadísticas
   const estadisticas: DatosEstadisticas = {
-    diario: buildDiario(bienestar, rpeRecords),
-    semanal: buildSemanal(bienestar, rpeRecords),
-    mensual: buildMensual(bienestar, rpeRecords),
+    diario: buildDiario(hoy, bienestar, rpeRecords),
+    semanal: buildSemanal(hoy, bienestar, rpeRecords),
+    mensual: buildMensual(hoy, bienestar, rpeRecords),
   }
 
   // Historial (agrupado por fecha)
@@ -248,7 +218,7 @@ export default async function ProgresoPage() {
   if (!profile) redirect('/login')
 
   const hoy = getHoyChile()
-  const { estadisticas, historial, bienestar, pesos, totalRegistros } = await getDatos(profile.id)
+  const { estadisticas, historial, bienestar, pesos, totalRegistros } = await getDatos(profile.id, hoy)
 
   // Peso de hoy (null = no registrado aún, undefined = no se muestra el card)
   const pesoHoyRaw = pesos.find((p) => p.fecha === hoy)

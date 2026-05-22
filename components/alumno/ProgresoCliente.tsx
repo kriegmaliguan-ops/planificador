@@ -34,53 +34,89 @@ function rpeColor(rpe: number): string {
   return 'bg-red-100 text-red-700'
 }
 
-// ── Bar Chart ─────────────────────────────────────────────────────────────────
+// ── RPE Bar Chart ─────────────────────────────────────────────────────────────
 
-function MiniBarChart({
-  puntos,
-  campo,
-  maxVal,
-  colorFn,
-}: {
-  puntos: PuntoTemporal[]
-  campo: 'descanso' | 'rpe'
-  maxVal: number
-  colorFn: (val: number) => string
-}) {
-  return (
-    <div className="flex items-end gap-0.5 h-14">
-      {puntos.map((p, i) => {
-        const val = p[campo]
-        const h = val !== null ? Math.round((val / maxVal) * 100) : 0
-        return (
-          <div key={i} className="flex flex-1 flex-col items-center gap-0.5">
-            {val !== null && (
-              <span className="text-[8px] font-bold text-slate-700 leading-none">{val}</span>
-            )}
-            <div
-              className={`w-full rounded-t-sm transition-all ${
-                val !== null ? colorFn(val) : 'bg-slate-100'
-              }`}
-              style={{ height: `${h}%`, minHeight: val !== null ? '3px' : '0' }}
-            />
-          </div>
-        )
-      })}
-    </div>
-  )
+const CHART_H = 140
+
+function rpeBarColor(rpe: number): string {
+  if (rpe <= 3) return 'bg-lime-400'
+  if (rpe <= 5) return 'bg-yellow-400'
+  if (rpe <= 7) return 'bg-orange-400'
+  return 'bg-red-500'
 }
 
-function XAxisLabels({ puntos }: { puntos: PuntoTemporal[] }) {
-  const step = puntos.length > 10 ? 2 : 1
+function RPEBarChart({ puntos }: { puntos: PuntoTemporal[] }) {
+  const ticks = [2, 4, 6, 8, 10]
   return (
-    <div className="flex gap-0.5 mt-1">
-      {puntos.map((p, i) => (
-        <div key={i} className="flex-1 text-center">
-          {i % step === 0 && (
-            <span className="text-[8px] text-slate-500">{p.label}</span>
-          )}
+    <div>
+      <div className="flex">
+        {/* Y-axis */}
+        <div
+          className="flex flex-col-reverse justify-between w-5 pr-1.5 shrink-0"
+          style={{ height: CHART_H }}
+        >
+          {ticks.map((n) => (
+            <span key={n} className="block text-right text-[9px] text-slate-400 leading-none">{n}</span>
+          ))}
         </div>
-      ))}
+
+        {/* Chart area */}
+        <div className="relative flex-1 border-l border-slate-100" style={{ height: CHART_H }}>
+          {/* Grid lines */}
+          {ticks.map((n) => (
+            <div
+              key={n}
+              className="absolute left-0 right-0 border-t border-slate-100"
+              style={{ top: `${((10 - n) / 10) * 100}%` }}
+            />
+          ))}
+
+          {/* Bars */}
+          <div className="absolute inset-0 flex items-end gap-px px-1">
+            {puntos.map((p, i) => {
+              const hasRPE = p.rpe !== null
+              const pct = hasRPE ? (p.rpe! / 10) * 100 : 0
+              return (
+                <div key={i} className="relative flex flex-1 items-end h-full">
+                  {/* Bar */}
+                  <div
+                    className={`w-full transition-all ${
+                      !hasRPE
+                        ? p.esHoy ? 'bg-blue-100 rounded-sm' : 'bg-slate-100 rounded-sm'
+                        : `rounded-t-sm ${rpeBarColor(p.rpe!)}`
+                    }${hasRPE && p.esHoy ? ' ring-2 ring-blue-400 ring-offset-[1px]' : ''}`}
+                    style={{ height: hasRPE ? `${pct}%` : '3px', minHeight: hasRPE ? '4px' : '3px' }}
+                  />
+                  {/* Value label above bar */}
+                  {hasRPE && (
+                    <span
+                      className="absolute left-0 right-0 text-center text-[8px] font-bold leading-none text-slate-700 pointer-events-none"
+                      style={{ bottom: `calc(${pct}% + 3px)` }}
+                    >
+                      {p.rpe}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* X-axis labels */}
+      <div className="flex mt-1.5 pl-5">
+        {puntos.map((p, i) => (
+          <div key={i} className="flex-1 text-center">
+            <span className={`block text-[9px] leading-none ${
+              p.esHoy ? 'font-bold text-blue-600'
+              : p.sesiones === 0 ? 'text-slate-300'
+              : 'text-slate-500'
+            }`}>
+              {p.label}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -89,11 +125,16 @@ function XAxisLabels({ puntos }: { puntos: PuntoTemporal[] }) {
 
 type Periodo = 'diario' | 'semanal' | 'mensual'
 
-function EstadisticasTab({ estadisticas }: { estadisticas: DatosEstadisticas }) {
-  const [periodo, setPeriodo] = useState<Periodo>('diario')
-  const puntos = estadisticas[periodo]
+const PERIODO_LABELS: Record<Periodo, string> = {
+  diario: 'Últimos 7 días',
+  semanal: 'Esta semana',
+  mensual: 'Últimas 8 semanas',
+}
 
-  const tieneDatos = puntos.some((p) => p.descanso !== null || p.rpe !== null)
+function EstadisticasTab({ estadisticas }: { estadisticas: DatosEstadisticas }) {
+  const [periodo, setPeriodo] = useState<Periodo>('semanal')
+  const puntos = estadisticas[periodo]
+  const tieneDatos = puntos.some((p) => p.rpe !== null)
 
   return (
     <div className="space-y-4">
@@ -112,41 +153,34 @@ function EstadisticasTab({ estadisticas }: { estadisticas: DatosEstadisticas }) 
         ))}
       </div>
 
-      {!tieneDatos ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl bg-white px-6 py-10 text-center ring-1 ring-slate-100">
-          <TrendingUp className="h-10 w-10 text-slate-200" />
-          <p className="text-sm text-slate-400">Sin datos en este período todavía.</p>
+      <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
+          <Zap className="h-4 w-4 text-slate-400" />
+          <p className="text-sm font-semibold text-slate-700">Esfuerzo (RPE)</p>
+          <span className="ml-auto text-xs text-slate-400">{PERIODO_LABELS[periodo]}</span>
         </div>
-      ) : (
-        <>
-          {/* RPE */}
-          <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
-            <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
-              <Zap className="h-4 w-4 text-slate-400" />
-              <p className="text-sm font-semibold text-slate-700">Esfuerzo promedio (RPE)</p>
-              <span className="ml-auto text-xs text-slate-400">escala 1–10</span>
-            </div>
-            <div className="px-4 py-3">
-              <MiniBarChart
-                puntos={puntos}
-                campo="rpe"
-                maxVal={10}
-                colorFn={(v) =>
-                  v <= 4 ? 'bg-lime-400' : v <= 6 ? 'bg-yellow-400' : v <= 8 ? 'bg-orange-400' : 'bg-red-500'
-                }
-              />
-              <XAxisLabels puntos={puntos} />
-            </div>
-            <div className="flex flex-wrap gap-1.5 border-t border-slate-50 px-4 py-2.5">
-              {[[1,'Fácil','bg-lime-400'],[5,'Moderado','bg-yellow-400'],[8,'Duro','bg-orange-400'],[10,'Máximo','bg-red-500']].map(([n, label, color]) => (
-                <span key={n} className={`rounded-full px-2 py-0.5 text-[10px] font-medium text-white ${color}`}>
-                  {n} – {label}
-                </span>
-              ))}
-            </div>
+
+        {tieneDatos ? (
+          <div className="px-4 pt-4 pb-3">
+            <RPEBarChart puntos={puntos} />
           </div>
-        </>
-      )}
+        ) : (
+          <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+            <Zap className="h-10 w-10 text-slate-200" />
+            <p className="text-sm text-slate-400">Sin entrenamientos registrados en este período.</p>
+          </div>
+        )}
+
+        {/* Legend */}
+        <div className="flex flex-wrap gap-1.5 border-t border-slate-50 px-4 py-2.5">
+          {([['≤3','Fácil','bg-lime-400'],['≤5','Moderado','bg-yellow-400'],['≤7','Duro','bg-orange-400'],['8+','Máximo','bg-red-500']] as const).map(([n, label, color]) => (
+            <span key={n} className={`rounded-full px-2 py-0.5 text-[10px] font-medium text-white ${color}`}>
+              {n} – {label}
+            </span>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
