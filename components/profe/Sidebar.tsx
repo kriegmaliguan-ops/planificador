@@ -8,11 +8,11 @@ import {
   LayoutDashboard,
   Users,
   BookOpen,
-  CalendarDays,
   Layers,
   LogOut,
   ChevronRight,
   X,
+  UserCircle,
 } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 import type { Profile } from '@/lib/types/database'
@@ -86,7 +86,12 @@ export function Sidebar({ profile, onClose }: SidebarProps) {
 
       {/* Usuario + logout */}
       <div className="border-t border-slate-800 p-3 space-y-1">
-        <div className="flex items-center gap-3 rounded-lg px-3 py-2">
+        <Link
+          href="/perfil"
+          className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
+            pathname === '/perfil' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-slate-800'
+          }`}
+        >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500 text-xs font-bold text-white">
             {initials || '?'}
           </div>
@@ -96,7 +101,8 @@ export function Sidebar({ profile, onClose }: SidebarProps) {
             </p>
             <p className="truncate text-xs text-slate-500">{profile.email}</p>
           </div>
-        </div>
+          <UserCircle className="h-4 w-4 shrink-0 text-slate-500" />
+        </Link>
         <button
           onClick={handleLogout}
           disabled={isPending}

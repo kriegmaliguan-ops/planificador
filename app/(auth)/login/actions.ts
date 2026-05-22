@@ -32,11 +32,16 @@ export async function login(formData: FormData) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, password_changed')
     .eq('id', user!.id)
-    .single() as { data: { role: string } | null; error: unknown }
+    .single() as { data: { role: string; password_changed: boolean | null } | null; error: unknown }
 
-  redirect(profile?.role === 'profe' ? '/dashboard' : '/rutina')
+  if (profile?.role === 'profe') redirect('/dashboard')
+
+  // Alumno — si nunca cambió la contraseña temporal, forzar cambio
+  if (profile?.password_changed === false) redirect('/auth/nueva-contrasena')
+
+  redirect('/rutina')
 }
 
 export async function logout() {

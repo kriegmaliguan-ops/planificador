@@ -24,6 +24,7 @@ export interface Profile {
   objetivo: string | null
   notas_profe: string | null
   suspendido: boolean | null
+  password_changed: boolean | null
   created_at: string
   updated_at: string
 }

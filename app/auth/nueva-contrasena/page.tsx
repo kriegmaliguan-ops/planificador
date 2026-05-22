@@ -30,10 +30,17 @@ export default function NuevaContrasenaPage() {
       const { error } = await supabase.auth.updateUser({ password })
       if (error) {
         setError('Error al guardar. Intentá de nuevo o pedile al profe que te reenvíe la invitación.')
-      } else {
-        setDone(true)
-        setTimeout(() => router.push('/rutina'), 2500)
+        return
       }
+      // Marcar contraseña como cambiada
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        await (supabase.from('profiles') as any)
+          .update({ password_changed: true })
+          .eq('id', user.id)
+      }
+      setDone(true)
+      setTimeout(() => router.push('/rutina'), 2500)
     })
   }
 
