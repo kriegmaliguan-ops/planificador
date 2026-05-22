@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Dumbbell, PartyPopper, CalendarDays, Moon, ArrowLeft } from 'lucide-react'
+import { Dumbbell, PartyPopper, CalendarDays, Moon, ArrowLeft, Flame } from 'lucide-react'
 // PartyPopper kept for empty state
 import { createClient } from '@/lib/supabase/server'
 import { typed } from '@/lib/supabase/types-helper'
@@ -27,6 +27,67 @@ function getDiaFromFecha(fecha: string): DiaSemana {
   const date = new Date(y, m - 1, d)
   const days: DiaSemana[] = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
   return days[date.getDay()]
+}
+
+// ── Racha y semana ────────────────────────────────────────────────────────────
+
+interface RachaInfo {
+  racha: number          // días consecutivos entrenados hasta hoy
+  semanaActual: string[] // fechas 'YYYY-MM-DD' entrenadas esta semana (lun–dom)
+  lunes: string          // fecha del lunes de esta semana
+}
+
+async function getRachaYSemana(alumnoId: string, hoy: string): Promise<RachaInfo> {
+  const supabase = await createClient()
+
+  // Calcular lunes de la semana actual
+  const [y, m, d] = hoy.split('-').map(Number)
+  const hoyDate = new Date(y, m - 1, d)
+  const dow = hoyDate.getDay() // 0=dom,1=lun,...,6=sab
+  const diffLunes = dow === 0 ? -6 : 1 - dow
+  const lunesDate = new Date(hoyDate)
+  lunesDate.setDate(hoyDate.getDate() + diffLunes)
+  const lunes = lunesDate.toISOString().slice(0, 10)
+
+  // Pedir registros de los últimos 90 días
+  const hace90 = new Date(hoyDate)
+  hace90.setDate(hoyDate.getDate() - 90)
+  const desde = hace90.toISOString().slice(0, 10)
+
+  const { data } = await supabase
+    .from('registros_progreso')
+    .select('fecha')
+    .eq('alumno_id', alumnoId)
+    .gte('fecha', desde)
+    .lte('fecha', hoy)
+    .order('fecha', { ascending: false }) as { data: { fecha: string }[] | null }
+
+  // Unique dates
+  const fechasSet = new Set((data ?? []).map((r) => r.fecha))
+
+  // Calcular racha: días consecutivos hacia atrás desde hoy
+  let racha = 0
+  const cursor = new Date(hoyDate)
+  while (true) {
+    const f = cursor.toISOString().slice(0, 10)
+    if (fechasSet.has(f)) {
+      racha++
+      cursor.setDate(cursor.getDate() - 1)
+    } else {
+      break
+    }
+  }
+
+  // Días de la semana actual (lun–dom) que tienen registros
+  const semanaActual: string[] = []
+  const cursorSem = new Date(lunesDate)
+  for (let i = 0; i < 7; i++) {
+    const f = cursorSem.toISOString().slice(0, 10)
+    if (fechasSet.has(f)) semanaActual.push(f)
+    cursorSem.setDate(cursorSem.getDate() + 1)
+  }
+
+  return { racha, semanaActual, lunes }
 }
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
@@ -212,9 +273,13 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
     : (fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) && fechaParam <= hoyStr ? fechaParam : hoyStr)
   const esHoy = fecha === hoyStr
 
-  const {
-    rutina, diaHoyNombre, semanaNumero, esDescanso, ejerciciosHoy, semana, hechos, bienestarHoy, diaDelFecha,
-  } = await getDatosDia(profile.id, fecha, semanaOverride, diaOverride)
+  const [
+    { rutina, diaHoyNombre, semanaNumero, esDescanso, ejerciciosHoy, semana, hechos, bienestarHoy, diaDelFecha },
+    rachaInfo,
+  ] = await Promise.all([
+    getDatosDia(profile.id, fecha, semanaOverride, diaOverride),
+    getRachaYSemana(profile.id, hoyStr),
+  ])
 
   if (!rutina) {
     return (
@@ -292,6 +357,64 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
           </div>
         )}
       </div>
+
+      {/* Racha + semana — solo en vista de hoy */}
+      {esHoy && !modoSemana && (() => {
+        const { racha, semanaActual, lunes } = rachaInfo
+        const diasSemana = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+        return (
+          <div className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-slate-100">
+            <div className="flex items-center justify-between">
+              {/* Racha */}
+              <div className="flex items-center gap-2">
+                <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+                  racha > 0 ? 'bg-orange-100' : 'bg-slate-100'
+                }`}>
+                  <Flame className={`h-5 w-5 ${racha > 0 ? 'text-orange-500' : 'text-slate-400'}`} />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Racha actual</p>
+                  <p className="text-lg font-bold text-slate-900 leading-tight">
+                    {racha} {racha === 1 ? 'día' : 'días'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Dots de la semana */}
+              <div className="flex flex-col items-end gap-1">
+                <p className="text-xs text-slate-400">Esta semana</p>
+                <div className="flex gap-1.5">
+                  {diasSemana.map((letra, i) => {
+                    const cursorDate = new Date(
+                      Number(lunes.slice(0, 4)),
+                      Number(lunes.slice(5, 7)) - 1,
+                      Number(lunes.slice(8, 10)) + i
+                    )
+                    const fechaDia = cursorDate.toISOString().slice(0, 10)
+                    const esFuturo = fechaDia > hoyStr
+                    const entreno = semanaActual.includes(fechaDia)
+                    const esHoyDot = fechaDia === hoyStr
+                    return (
+                      <div key={i} className="flex flex-col items-center gap-0.5">
+                        <span className="text-[9px] font-medium text-slate-400">{letra}</span>
+                        <div className={`h-2.5 w-2.5 rounded-full ${
+                          entreno
+                            ? 'bg-blue-500'
+                            : esFuturo
+                            ? 'bg-slate-100'
+                            : esHoyDot
+                            ? 'bg-slate-200 ring-2 ring-blue-300'
+                            : 'bg-slate-200'
+                        }`} />
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Sueño — primero que registran, visible en cualquier día */}
       {!modoSemana && <BienestarCard registroHoy={bienestarHoy} fecha={fecha} />}
