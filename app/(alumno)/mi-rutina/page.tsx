@@ -9,7 +9,9 @@ export default async function MiRutinaPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [rutinaResult, progresoResult] = await Promise.all([
+  const hoy = getHoyChile()
+
+  const [rutinaResult, progresoResult, bienestarResult] = await Promise.all([
     supabase
       .from('rutinas')
       .select(`
@@ -30,11 +32,19 @@ export default async function MiRutinaPage() {
       .from('registros_progreso')
       .select('rutina_ejercicio_id')
       .eq('alumno_id', user.id)
-      .eq('fecha', getHoyChile()) as unknown as Promise<{ data: { rutina_ejercicio_id: string }[] | null }>,
+      .eq('fecha', hoy) as unknown as Promise<{ data: { rutina_ejercicio_id: string }[] | null }>,
+
+    supabase
+      .from('registros_bienestar')
+      .select('descanso, notas')
+      .eq('alumno_id', user.id)
+      .eq('fecha', hoy)
+      .maybeSingle() as unknown as Promise<{ data: { descanso: number; notas: string | null } | null }>,
   ])
 
   const rutina = rutinaResult.data
   const completadosHoy = (progresoResult.data ?? []).map(r => r.rutina_ejercicio_id)
+  const bienestarHoy = bienestarResult.data ?? null
 
   if (!rutina) {
     return (
@@ -48,5 +58,12 @@ export default async function MiRutinaPage() {
     )
   }
 
-  return <RutinaCompleta rutina={rutina} completadosHoy={completadosHoy} />
+  return (
+    <RutinaCompleta
+      rutina={rutina}
+      completadosHoy={completadosHoy}
+      bienestarHoy={bienestarHoy}
+      fecha={hoy}
+    />
+  )
 }

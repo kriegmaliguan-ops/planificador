@@ -65,7 +65,31 @@ async function getDatosDia(
       (d: any) => d.dia_semana === diaOverride && d.semana_numero === semanaOverride
     )
   } else {
-    diaHoy = (rawRutina.dias ?? []).find((d: any) => d.dia_semana === diaDelFecha)
+    const matchingDias = (rawRutina.dias ?? []).filter((d: any) => d.dia_semana === diaDelFecha)
+    if (matchingDias.length <= 1) {
+      diaHoy = matchingDias[0] ?? null
+    } else {
+      // Rutina multi-semana: detectar semana activa por último registro
+      const allIds = (rawRutina.dias ?? []).flatMap((d: any) => (d.ejercicios ?? []).map((e: any) => e.id))
+      let semanaActiva = 1
+      if (allIds.length > 0) {
+        const { data: ultimo } = await supabase
+          .from('registros_progreso')
+          .select('rutina_ejercicio_id')
+          .eq('alumno_id', alumnoId)
+          .in('rutina_ejercicio_id', allIds)
+          .order('fecha', { ascending: false })
+          .limit(1)
+          .maybeSingle() as { data: { rutina_ejercicio_id: string } | null }
+        if (ultimo) {
+          const diaDelUltimo = (rawRutina.dias ?? []).find((d: any) =>
+            (d.ejercicios ?? []).some((e: any) => e.id === ultimo.rutina_ejercicio_id)
+          )
+          if (diaDelUltimo?.semana_numero) semanaActiva = diaDelUltimo.semana_numero
+        }
+      }
+      diaHoy = matchingDias.find((d: any) => d.semana_numero === semanaActiva) ?? matchingDias[0]
+    }
   }
 
   const esDescanso = diaHoy?.es_descanso ?? false

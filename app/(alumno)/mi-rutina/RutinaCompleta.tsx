@@ -3,6 +3,7 @@
 import { useState, Fragment } from 'react'
 import Link from 'next/link'
 import { PlayCircle, Moon, Dumbbell, Clock, ChevronDown, ClipboardList, CheckCircle2 } from 'lucide-react'
+import { BienestarCard } from '@/components/alumno/BienestarCard'
 
 type DiaSemana = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo'
 
@@ -23,9 +24,11 @@ function getMes(semana: number) { return Math.ceil(semana / 4) }
 interface Props {
   rutina: { id: string; nombre: string; dias: any[] }
   completadosHoy: string[]
+  bienestarHoy: { descanso: number; notas: string | null } | null
+  fecha: string
 }
 
-export function RutinaCompleta({ rutina, completadosHoy }: Props) {
+export function RutinaCompleta({ rutina, completadosHoy, bienestarHoy, fecha }: Props) {
   const completadosSet = new Set(completadosHoy)
 
   // ── Procesar datos ────────────────────────────────────────────────────────
@@ -76,6 +79,9 @@ export function RutinaCompleta({ rutina, completadosHoy }: Props) {
         <h1 className="text-2xl font-bold text-slate-900">{rutina.nombre}</h1>
         <p className="text-sm text-slate-500 mt-1">{semanas.length} semana{semanas.length !== 1 ? 's' : ''} programadas</p>
       </div>
+
+      {/* Registro de sueño diario */}
+      <BienestarCard registroHoy={bienestarHoy} fecha={fecha} />
 
       {/* Selector de semanas */}
       <div className="-mx-4 px-4 overflow-x-auto">
