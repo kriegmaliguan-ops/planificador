@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { Dumbbell } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { getHoyChile } from '@/lib/utils'
 import { RutinaCompleta } from './RutinaCompleta'
 
 export default async function MiRutinaPage() {
@@ -8,21 +9,32 @@ export default async function MiRutinaPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: rutina } = await supabase
-    .from('rutinas')
-    .select(`
-      id, nombre,
-      dias:rutina_dias(
-        id, dia_semana, nombre, orden, es_descanso, semana_numero,
-        ejercicios:rutina_ejercicios(
-          id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas,
-          ejercicio:ejercicios(id, nombre, video_url, grupos:ejercicio_grupos(grupo:grupos_musculares(id, nombre)))
+  const [rutinaResult, progresoResult] = await Promise.all([
+    supabase
+      .from('rutinas')
+      .select(`
+        id, nombre,
+        dias:rutina_dias(
+          id, dia_semana, nombre, orden, es_descanso, semana_numero,
+          ejercicios:rutina_ejercicios(
+            id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas,
+            ejercicio:ejercicios(id, nombre, video_url, grupos:ejercicio_grupos(grupo:grupos_musculares(id, nombre)))
+          )
         )
-      )
-    `)
-    .eq('alumno_id', user.id)
-    .eq('activa', true)
-    .maybeSingle() as { data: any | null }
+      `)
+      .eq('alumno_id', user.id)
+      .eq('activa', true)
+      .maybeSingle() as unknown as Promise<{ data: any | null }>,
+
+    supabase
+      .from('registros_progreso')
+      .select('rutina_ejercicio_id')
+      .eq('alumno_id', user.id)
+      .eq('fecha', getHoyChile()) as unknown as Promise<{ data: { rutina_ejercicio_id: string }[] | null }>,
+  ])
+
+  const rutina = rutinaResult.data
+  const completadosHoy = (progresoResult.data ?? []).map(r => r.rutina_ejercicio_id)
 
   if (!rutina) {
     return (
@@ -36,5 +48,5 @@ export default async function MiRutinaPage() {
     )
   }
 
-  return <RutinaCompleta rutina={rutina} />
+  return <RutinaCompleta rutina={rutina} completadosHoy={completadosHoy} />
 }

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Dumbbell, PartyPopper, CalendarDays, Moon, ArrowLeft } from 'lucide-react'
+// PartyPopper kept for empty state
 import { createClient } from '@/lib/supabase/server'
 import { typed } from '@/lib/supabase/types-helper'
 import { getHoyChile, getDiaHoy, DIAS_LABELS, DIAS_SEMANA } from '@/lib/utils'
@@ -268,74 +269,25 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
         )}
       </div>
 
-      {/* Encuesta de sueño (solo en modo normal/hoy) */}
-      {!modoSemana && <BienestarCard registroHoy={bienestarHoy} />}
-
       {/* Día de descanso */}
       {esDescanso ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-6 py-10 text-center shadow-sm ring-1 ring-slate-100">
           <Moon className="h-12 w-12 text-slate-300" />
           <div>
             <p className="text-lg font-bold text-slate-900">Día de descanso</p>
-            <p className="mt-1 text-sm text-slate-500">
-              {esHoy ? '¡Recuperate bien!' : 'Este día era de descanso.'}
-            </p>
+            <p className="mt-1 text-sm text-slate-500">Recuperate bien 😴</p>
           </div>
         </div>
       ) : ejerciciosHoy.length === 0 ? (
-        <div className="space-y-4">
-          <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-6 py-10 text-center shadow-sm ring-1 ring-slate-100">
-            <PartyPopper className="h-12 w-12 text-yellow-400" />
-            <div>
-              <p className="text-lg font-bold text-slate-900">Sin ejercicios</p>
-              <p className="mt-1 text-sm text-slate-500">
-                No hay ejercicios programados para este día.
-              </p>
-            </div>
+        <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-6 py-10 text-center shadow-sm ring-1 ring-slate-100">
+          <PartyPopper className="h-12 w-12 text-yellow-400" />
+          <div>
+            <p className="text-lg font-bold text-slate-900">Sin ejercicios</p>
+            <p className="mt-1 text-sm text-slate-500">No hay ejercicios programados para este día.</p>
           </div>
-
-          {/* Vista de la semana */}
-          {!modoSemana && (
-            <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
-              <p className="border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Tu semana
-              </p>
-              {semana.map(({ dia, nombre, cantEjercicios, esDescanso: esDes }) => (
-                <div
-                  key={dia}
-                  className={`flex items-center justify-between px-4 py-3 ${dia === diaDelFecha ? 'bg-blue-50' : ''}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className={`text-sm font-medium ${dia === diaDelFecha ? 'text-blue-700' : 'text-slate-700'}`}>
-                      {DIAS_LABELS[dia]}
-                    </span>
-                    {nombre && <span className="text-xs text-slate-600">{nombre}</span>}
-                  </div>
-                  {esDes ? (
-                    <span className="text-xs text-slate-500">Descanso</span>
-                  ) : cantEjercicios > 0 ? (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                      {cantEjercicios} ejerc.
-                    </span>
-                  ) : (
-                    <span className="text-xs text-slate-500">Descanso</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       ) : (
         <>
-          {completados === totalEjercicios && totalEjercicios > 0 && (
-            <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 px-4 py-3 ring-1 ring-emerald-200">
-              <PartyPopper className="h-5 w-5 shrink-0 text-emerald-600" />
-              <p className="text-sm font-semibold text-emerald-800">
-                {esHoy ? '¡Sesión completa! Buen trabajo 💪' : 'Sesión registrada ✓'}
-              </p>
-            </div>
-          )}
-
           {ejerciciosHoy.map((ej, i) => (
             <EjercicioHoyCard
               key={ej.rutinaEjercicioId}
@@ -347,7 +299,7 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
 
           {rpePromedio !== null && (
             <div className="rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100 flex items-center justify-between">
-              <span className="text-sm text-slate-500">RPE promedio de sesión</span>
+              <span className="text-sm text-slate-500">RPE promedio</span>
               <span className={`rounded-full px-3 py-1 text-sm font-bold text-white ${
                 rpePromedio <= 4 ? 'bg-lime-500'
                 : rpePromedio <= 6 ? 'bg-yellow-500'
@@ -358,6 +310,9 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
               </span>
             </div>
           )}
+
+          {/* Sueño al final */}
+          {!modoSemana && <BienestarCard registroHoy={bienestarHoy} fecha={fecha} />}
         </>
       )}
     </div>

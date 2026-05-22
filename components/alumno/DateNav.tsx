@@ -54,13 +54,10 @@ export function DateNav({ fecha }: DateNavProps) {
       <div className="flex flex-1 flex-col items-center gap-0.5">
         <div className="flex items-center gap-1.5 text-xs text-slate-400">
           <CalendarDays className="h-3.5 w-3.5" />
-          {esHoy ? (
-            <span className="font-semibold text-blue-600">Hoy</span>
-          ) : (
-            <span>Sesión pasada</span>
-          )}
+          <span className={esHoy ? 'font-semibold text-blue-600' : ''}>
+            {fechaLabel}
+          </span>
         </div>
-        <p className="text-sm font-semibold text-slate-900 capitalize">{fechaLabel}</p>
       </div>
 
       {/* Siguiente (solo si no es hoy) */}

@@ -64,12 +64,13 @@ export async function registrarProgreso(data: {
 export async function registrarBienestar(data: {
   descanso: number
   notas: string | null
+  fecha?: string
 }): Promise<{ error?: string; success?: boolean }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'No autenticado.' }
 
-  const hoy = getHoyChile()
+  const hoy = data.fecha ?? getHoyChile()
 
   const { data: existente } = await supabase
     .from('registros_bienestar')

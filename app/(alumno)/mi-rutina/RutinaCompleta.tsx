@@ -2,7 +2,7 @@
 
 import { useState, Fragment } from 'react'
 import Link from 'next/link'
-import { PlayCircle, Moon, Dumbbell, Clock, ChevronDown, ClipboardList } from 'lucide-react'
+import { PlayCircle, Moon, Dumbbell, Clock, ChevronDown, ClipboardList, CheckCircle2 } from 'lucide-react'
 
 type DiaSemana = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo'
 
@@ -18,25 +18,16 @@ const DIAS_SHORT: Record<DiaSemana, string> = {
   viernes: 'V', sabado: 'S', domingo: 'D',
 }
 
-function getTodayDia(): DiaSemana {
-  const dayName = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Santiago',
-    weekday: 'long',
-  }).format(new Date())
-  const map: Record<string, DiaSemana> = {
-    Sunday: 'domingo', Monday: 'lunes', Tuesday: 'martes',
-    Wednesday: 'miercoles', Thursday: 'jueves', Friday: 'viernes', Saturday: 'sabado',
-  }
-  return map[dayName] ?? 'lunes'
-}
-
 function getMes(semana: number) { return Math.ceil(semana / 4) }
 
 interface Props {
   rutina: { id: string; nombre: string; dias: any[] }
+  completadosHoy: string[]
 }
 
-export function RutinaCompleta({ rutina }: Props) {
+export function RutinaCompleta({ rutina, completadosHoy }: Props) {
+  const completadosSet = new Set(completadosHoy)
+
   // ── Procesar datos ────────────────────────────────────────────────────────
   const semanasSet = new Set<number>()
   const diasBySemana: Record<number, Partial<Record<DiaSemana, any>>> = {}
@@ -52,7 +43,6 @@ export function RutinaCompleta({ rutina }: Props) {
   }
 
   const semanas = Array.from(semanasSet).sort((a, b) => a - b)
-  const hoy = getTodayDia()
 
   const [semanaActiva, setSemanaActiva] = useState<number>(semanas[0] ?? 1)
   const [diaActivo, setDiaActivo] = useState<DiaSemana | null>(null)
@@ -62,6 +52,19 @@ export function RutinaCompleta({ rutina }: Props) {
   function handleSemana(sem: number) {
     setSemanaActiva(sem)
     setDiaActivo(null)
+  }
+
+  // Calcular estado de cada día: completado / parcial / pendiente
+  function getEstadoDia(dia: DiaSemana): 'completado' | 'parcial' | 'pendiente' | 'descanso' | 'vacio' {
+    const diaData = diasDeSemana[dia]
+    if (!diaData) return 'vacio'
+    if (diaData.es_descanso) return 'descanso'
+    const ejercicios: any[] = diaData.ejercicios ?? []
+    if (ejercicios.length === 0) return 'vacio'
+    const hechos = ejercicios.filter((e: any) => completadosSet.has(e.id)).length
+    if (hechos === ejercicios.length) return 'completado'
+    if (hechos > 0) return 'parcial'
+    return 'pendiente'
   }
 
   return (
@@ -110,10 +113,9 @@ export function RutinaCompleta({ rutina }: Props) {
       {/* Grid de días */}
       <div className="grid grid-cols-7 gap-1.5">
         {DIAS_ORDER.map((dia) => {
+          const estado = getEstadoDia(dia)
           const diaData = diasDeSemana[dia]
-          const esDescanso = diaData?.es_descanso ?? !diaData
           const cantEj = diaData?.ejercicios?.length ?? 0
-          const esHoy = dia === hoy
           const activo = diaActivo === dia
 
           return (
@@ -123,21 +125,26 @@ export function RutinaCompleta({ rutina }: Props) {
               className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl py-3 px-1 min-h-[68px] transition-all active:scale-95 ${
                 activo
                   ? 'bg-slate-900 text-white shadow-lg'
-                  : esHoy && diaData
-                  ? 'bg-blue-600 text-white ring-2 ring-blue-300 shadow-md'
-                  : esHoy
-                  ? 'bg-blue-50 text-blue-600 ring-2 ring-blue-200'
+                  : estado === 'completado'
+                  ? 'bg-emerald-50 text-emerald-700 ring-2 ring-emerald-300'
+                  : estado === 'parcial'
+                  ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200'
                   : 'bg-white text-slate-700 ring-1 ring-slate-100 hover:ring-slate-200'
               }`}
             >
               <span className="text-[11px] font-bold">{DIAS_SHORT[dia]}</span>
-              {!diaData ? (
+
+              {estado === 'vacio' || !diaData ? (
                 <span className="h-1.5 w-1.5 rounded-full bg-slate-200" />
-              ) : esDescanso ? (
+              ) : estado === 'descanso' ? (
                 <Moon className={`h-3.5 w-3.5 ${activo ? 'opacity-60' : 'text-slate-300'}`} />
+              ) : estado === 'completado' ? (
+                <CheckCircle2 className={`h-4 w-4 ${activo ? 'text-white' : 'text-emerald-500'}`} />
               ) : (
                 <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
-                  activo ? 'bg-white/20 text-white' : esHoy ? 'bg-white/30' : 'bg-blue-100 text-blue-700'
+                  activo ? 'bg-white/20 text-white'
+                  : estado === 'parcial' ? 'bg-blue-200 text-blue-700'
+                  : 'bg-slate-100 text-slate-500'
                 }`}>
                   {cantEj}
                 </span>
@@ -166,12 +173,15 @@ export function RutinaCompleta({ rutina }: Props) {
             </div>
             <div>
               <p className="font-bold text-slate-900">{diaData.nombre || DIAS_LABELS[diaActivo]}</p>
-              <p className="mt-1 text-sm text-slate-500">Día de descanso activo — recuperate bien 😴</p>
+              <p className="mt-1 text-sm text-slate-500">Día de descanso — recuperate bien 😴</p>
             </div>
           </div>
         )
 
         const ejercicios: any[] = diaData.ejercicios ?? []
+        const hechosCount = ejercicios.filter((e: any) => completadosSet.has(e.id)).length
+        const totalCount = ejercicios.length
+        const todoHecho = hechosCount === totalCount && totalCount > 0
 
         return (
           <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
@@ -180,24 +190,22 @@ export function RutinaCompleta({ rutina }: Props) {
               <div>
                 <p className="font-bold text-slate-900">{diaData.nombre || DIAS_LABELS[diaActivo]}</p>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  {ejercicios.length} ejercicio{ejercicios.length !== 1 ? 's' : ''} · Sem {semanaActiva}
+                  {todoHecho
+                    ? <span className="text-emerald-600 font-semibold">✓ Completado hoy</span>
+                    : hechosCount > 0
+                    ? <span className="text-blue-600">{hechosCount}/{totalCount} hechos</span>
+                    : <span>{totalCount} ejercicio{totalCount !== 1 ? 's' : ''} · Sem {semanaActiva}</span>
+                  }
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                {diaActivo === hoy && (
-                  <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
-                    ¡Hoy!
-                  </span>
-                )}
-                {/* Botón Registrar */}
-                <Link
-                  href={`/rutina?semana=${semanaActiva}&dia=${diaActivo}`}
-                  className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-500 active:bg-blue-700 transition-colors"
-                >
-                  <ClipboardList className="h-3.5 w-3.5" />
-                  Registrar
-                </Link>
-              </div>
+              {/* Botón Registrar */}
+              <Link
+                href={`/rutina?semana=${semanaActiva}&dia=${diaActivo}`}
+                className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-500 active:bg-blue-700 transition-colors"
+              >
+                <ClipboardList className="h-3.5 w-3.5" />
+                {todoHecho ? 'Editar' : 'Registrar'}
+              </Link>
             </div>
 
             {/* Lista de ejercicios */}
@@ -207,19 +215,22 @@ export function RutinaCompleta({ rutina }: Props) {
                 const grupos: string[] = (ej?.grupos ?? [])
                   .map((g: any) => g.grupo?.nombre)
                   .filter(Boolean)
+                const hecho = completadosSet.has(re.id)
 
                 return (
-                  <div key={re.id} className="px-4 py-4">
+                  <div key={re.id} className={`px-4 py-4 ${hecho ? 'bg-emerald-50/40' : ''}`}>
                     <div className="flex items-start gap-3">
-                      {/* Número */}
-                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500">
-                        {i + 1}
+                      {/* Número o check */}
+                      <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                        hecho ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {hecho ? '✓' : i + 1}
                       </span>
 
                       {/* Nombre + grupos + video */}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-semibold text-slate-900 text-sm leading-snug">
+                          <p className={`font-semibold text-sm leading-snug ${hecho ? 'text-slate-600' : 'text-slate-900'}`}>
                             {ej?.nombre ?? 'Ejercicio'}
                           </p>
                           {ej?.video_url && (
@@ -229,7 +240,6 @@ export function RutinaCompleta({ rutina }: Props) {
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
                               className="shrink-0 text-red-500 hover:text-red-600 transition-colors"
-                              title="Ver video"
                             >
                               <PlayCircle className="h-4 w-4" />
                             </a>
@@ -238,10 +248,7 @@ export function RutinaCompleta({ rutina }: Props) {
                         {grupos.length > 0 && (
                           <div className="mt-1 flex flex-wrap gap-1">
                             {grupos.map((g) => (
-                              <span
-                                key={g}
-                                className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600"
-                              >
+                              <span key={g} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
                                 {g}
                               </span>
                             ))}
@@ -255,20 +262,18 @@ export function RutinaCompleta({ rutina }: Props) {
                                 {re.descanso_segundos}s
                               </span>
                             )}
-                            {re.notas && (
-                              <span className="italic">"{re.notas}"</span>
-                            )}
+                            {re.notas && <span className="italic">"{re.notas}"</span>}
                           </div>
                         )}
                       </div>
 
                       {/* Series × reps + peso */}
                       <div className="shrink-0 text-right">
-                        <p className="text-sm font-bold text-slate-800">
-                          {re.series} <span className="text-slate-400 font-normal">×</span> {re.repeticiones}
+                        <p className={`text-sm font-bold ${hecho ? 'text-slate-500' : 'text-slate-800'}`}>
+                          {re.series} <span className="font-normal opacity-60">×</span> {re.repeticiones}
                         </p>
                         {re.peso_objetivo && (
-                          <p className="text-xs text-slate-500 mt-0.5">{re.peso_objetivo} kg</p>
+                          <p className="text-xs text-slate-400 mt-0.5">{re.peso_objetivo} kg</p>
                         )}
                       </div>
                     </div>
