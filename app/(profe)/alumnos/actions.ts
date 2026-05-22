@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { crearNotificacion } from '@/lib/notificaciones'
 
 export async function suspenderAlumno(
   alumnoId: string,
@@ -23,6 +24,16 @@ export async function suspenderAlumno(
     .eq('role', 'alumno')
 
   if (error) return { error: 'Error al actualizar.' }
+
+  // Notificar al alumno cuando se reactiva el plan
+  if (!suspendido) {
+    await crearNotificacion(
+      alumnoId,
+      'plan_reactivado',
+      '¡Tu plan fue reactivado!',
+      'Ya podés volver a ver y registrar tu rutina.'
+    )
+  }
 
   revalidatePath(`/alumnos/${alumnoId}`)
   revalidatePath(`/rutinas/${alumnoId}`)
@@ -91,6 +102,16 @@ export async function crearAlumno(
       if (profileError) {
         console.error('Error creando perfil:', profileError)
       }
+    }
+
+    // Notificación de bienvenida
+    if (data.user) {
+      await crearNotificacion(
+        data.user.id,
+        'bienvenida',
+        `¡Bienvenido/a, ${nombre}!`,
+        'Tu profe te creó una cuenta. La primera vez que entres te pedirá que cambies tu contraseña.'
+      )
     }
 
     revalidatePath('/alumnos')

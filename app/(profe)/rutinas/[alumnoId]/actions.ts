@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { typed } from '@/lib/supabase/types-helper'
+import { crearNotificacion } from '@/lib/notificaciones'
 import type { DiaSemana } from '@/lib/types/database'
 
 // ── Crear rutina ──────────────────────────────────────────────────────────────
@@ -29,6 +30,14 @@ export async function crearRutina(
   )
 
   if (error || !data) return { error: 'Error al crear la rutina.' }
+
+  // Notificar al alumno
+  await crearNotificacion(
+    alumnoId,
+    'rutina_nueva',
+    '¡Tu profe te asignó una nueva rutina!',
+    `"${nombre}" ya está disponible en tu app.`
+  )
 
   revalidatePath(`/rutinas/${alumnoId}`)
   return { id: data.id }
