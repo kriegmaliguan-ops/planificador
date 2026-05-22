@@ -11,6 +11,11 @@ export default async function MiRutinaPage() {
 
   const hoy = getHoyChile()
 
+  // Fecha de hace 7 días para traer toda la semana de bienestar
+  const [y, m, d] = hoy.split('-').map(Number)
+  const hace7 = new Date(y, m - 1, d - 6)
+  const hace7Str = `${hace7.getFullYear()}-${String(hace7.getMonth() + 1).padStart(2, '0')}-${String(hace7.getDate()).padStart(2, '0')}`
+
   const [rutinaResult, progresoResult, bienestarResult] = await Promise.all([
     supabase
       .from('rutinas')
@@ -34,17 +39,23 @@ export default async function MiRutinaPage() {
       .eq('alumno_id', user.id)
       .eq('fecha', hoy) as unknown as Promise<{ data: { rutina_ejercicio_id: string }[] | null }>,
 
+    // Bienestar de los últimos 7 días (para todos los días de la semana)
     supabase
       .from('registros_bienestar')
-      .select('descanso, notas')
+      .select('fecha, descanso, notas')
       .eq('alumno_id', user.id)
-      .eq('fecha', hoy)
-      .maybeSingle() as unknown as Promise<{ data: { descanso: number; notas: string | null } | null }>,
+      .gte('fecha', hace7Str)
+      .lte('fecha', hoy) as unknown as Promise<{ data: { fecha: string; descanso: number; notas: string | null }[] | null }>,
   ])
 
   const rutina = rutinaResult.data
   const completadosHoy = (progresoResult.data ?? []).map(r => r.rutina_ejercicio_id)
-  const bienestarHoy = bienestarResult.data ?? null
+
+  // Mapa fecha → registro de bienestar
+  const bienestarPorFecha: Record<string, { descanso: number; notas: string | null }> = {}
+  for (const b of bienestarResult.data ?? []) {
+    bienestarPorFecha[b.fecha] = { descanso: b.descanso, notas: b.notas }
+  }
 
   if (!rutina) {
     return (
@@ -62,8 +73,8 @@ export default async function MiRutinaPage() {
     <RutinaCompleta
       rutina={rutina}
       completadosHoy={completadosHoy}
-      bienestarHoy={bienestarHoy}
-      fecha={hoy}
+      bienestarPorFecha={bienestarPorFecha}
+      hoy={hoy}
     />
   )
 }

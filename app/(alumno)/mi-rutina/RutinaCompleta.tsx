@@ -24,11 +24,25 @@ function getMes(semana: number) { return Math.ceil(semana / 4) }
 interface Props {
   rutina: { id: string; nombre: string; dias: any[] }
   completadosHoy: string[]
-  bienestarHoy: { descanso: number; notas: string | null } | null
-  fecha: string
+  bienestarPorFecha: Record<string, { descanso: number; notas: string | null }>
+  hoy: string
 }
 
-export function RutinaCompleta({ rutina, completadosHoy, bienestarHoy, fecha }: Props) {
+/** Devuelve la fecha YYYY-MM-DD del día de la semana más reciente (≤ hoy) */
+function getFechaParaDia(dia: DiaSemana, hoy: string): string {
+  const targetIdx = DIAS_ORDER.indexOf(dia) // 0=lunes … 6=domingo
+  const [y, m, d] = hoy.split('-').map(Number)
+  const base = new Date(y, m - 1, d)
+  // getDay(): 0=domingo,1=lunes…6=sábado → convertimos a nuestra escala (0=lunes…6=domingo)
+  const jsDay = base.getDay() // 0..6
+  const baseIdx = jsDay === 0 ? 6 : jsDay - 1 // 0=lunes…6=domingo
+  let diff = baseIdx - targetIdx
+  if (diff < 0) diff += 7
+  base.setDate(base.getDate() - diff)
+  return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`
+}
+
+export function RutinaCompleta({ rutina, completadosHoy, bienestarPorFecha, hoy }: Props) {
   const completadosSet = new Set(completadosHoy)
 
   // ── Procesar datos ────────────────────────────────────────────────────────
@@ -80,8 +94,17 @@ export function RutinaCompleta({ rutina, completadosHoy, bienestarHoy, fecha }: 
         <p className="text-sm text-slate-500 mt-1">{semanas.length} semana{semanas.length !== 1 ? 's' : ''} programadas</p>
       </div>
 
-      {/* Registro de sueño diario */}
-      <BienestarCard registroHoy={bienestarHoy} fecha={fecha} />
+      {/* Registro de sueño — para el día seleccionado (o hoy si ninguno) */}
+      {(() => {
+        const fechaActiva = diaActivo ? getFechaParaDia(diaActivo, hoy) : hoy
+        return (
+          <BienestarCard
+            key={fechaActiva}
+            registroHoy={bienestarPorFecha[fechaActiva] ?? null}
+            fecha={fechaActiva}
+          />
+        )
+      })()}
 
       {/* Selector de semanas */}
       <div className="-mx-4 px-4 overflow-x-auto">
