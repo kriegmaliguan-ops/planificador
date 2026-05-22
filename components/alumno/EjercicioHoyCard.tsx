@@ -33,6 +33,8 @@ interface EjercicioHoyCardProps {
   fecha?: string
 }
 
+// ── Inicialización de arrays de pesos y reps por serie ────────────────────────
+
 function initPesos(ejercicio: EjercicioHoyData): string[] {
   const n = ejercicio.series
   if (ejercicio.registroHoy?.pesos_por_serie?.length) {
@@ -45,6 +47,16 @@ function initPesos(ejercicio: EjercicioHoyData): string[] {
   return Array(n).fill(def != null ? String(def) : '')
 }
 
+function initReps(ejercicio: EjercicioHoyData): string[] {
+  const n = ejercicio.series
+  const existing = ejercicio.registroHoy?.repeticiones_realizadas
+  if (existing) {
+    const arr = existing.split(',').map(s => s.trim())
+    return Array(n).fill('').map((_, i) => arr[i] ?? arr[arr.length - 1] ?? ejercicio.repeticiones)
+  }
+  return Array(n).fill(ejercicio.repeticiones)
+}
+
 export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardProps) {
   const yaHecho = !!ejercicio.registroHoy
   const [isPending, startTransition] = useTransition()
@@ -54,17 +66,22 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
 
   const [form, setForm] = useState({
     series: ejercicio.registroHoy?.series_completadas ?? ejercicio.series,
-    reps: ejercicio.registroHoy?.repeticiones_realizadas ?? ejercicio.repeticiones,
     pesos: initPesos(ejercicio),
+    repsArray: initReps(ejercicio),
     rpe: ejercicio.registroHoy?.rpe ?? '' as number | '',
     notas: '',
   })
 
-  // Sincronizar largo de pesos cuando cambia series
+  // Sincronizar largo de arrays cuando cambia series
   const numSeries = Math.max(1, Math.min(10, Number(form.series) || 1))
+
   const pesosSync = form.pesos.length !== numSeries
     ? Array(numSeries).fill('').map((_, i) => form.pesos[i] ?? form.pesos[0] ?? '')
     : form.pesos
+
+  const repsSync = form.repsArray.length !== numSeries
+    ? Array(numSeries).fill('').map((_, i) => form.repsArray[i] ?? form.repsArray[0] ?? ejercicio.repeticiones)
+    : form.repsArray
 
   function setPeso(i: number, val: string) {
     const next = [...pesosSync]
@@ -72,24 +89,40 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
     setForm(p => ({ ...p, pesos: next }))
   }
 
+  function setRep(i: number, val: string) {
+    const next = [...repsSync]
+    next[i] = val
+    setForm(p => ({ ...p, repsArray: next }))
+  }
+
   function fillAllPesos(val: string) {
     setForm(p => ({ ...p, pesos: Array(numSeries).fill(val) }))
+  }
+
+  function fillAllReps(val: string) {
+    setForm(p => ({ ...p, repsArray: Array(numSeries).fill(val) }))
   }
 
   function handleGuardar(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+
     const pesosNums = pesosSync.map(p => p !== '' ? Number(p) : null)
     const noNulls = pesosNums.filter(p => p !== null) as number[]
     const pesoUtilizado = noNulls.length > 0
       ? Math.round((noNulls.reduce((a, b) => a + b, 0) / noNulls.length) * 10) / 10
       : null
 
+    // Reps: si todas iguales → valor único, si distintas → comma-separated
+    const repeticionesRealizadas = repsSync.every(r => r === repsSync[0])
+      ? (repsSync[0] || ejercicio.repeticiones)
+      : repsSync.join(',')
+
     startTransition(async () => {
       const result = await registrarProgreso({
         rutinaEjercicioId: ejercicio.rutinaEjercicioId,
         seriesCompletadas: numSeries,
-        repeticionesRealizadas: String(form.reps) || ejercicio.repeticiones,
+        repeticionesRealizadas,
         pesoUtilizado,
         pesos_por_serie: pesosNums,
         rpe: form.rpe !== '' ? Number(form.rpe) : null,
@@ -188,29 +221,57 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
           </div>
 
           <form onSubmit={handleGuardar} className="space-y-4">
-            {/* Series + Reps */}
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'Series', key: 'series', type: 'number', min: 1 },
-                { label: 'Reps', key: 'reps', type: 'text' },
-              ].map(({ label, key, ...rest }) => (
-                <div key={key} className="flex flex-col gap-1">
-                  <label className="text-center text-xs font-medium text-slate-700">{label}</label>
-                  <input
-                    {...rest}
-                    value={(form as any)[key]}
-                    onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-200 px-2 py-3 text-center text-lg font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-              ))}
+            {/* Series */}
+            <div className="flex flex-col gap-1">
+              <label className="text-center text-xs font-medium text-slate-700">Series</label>
+              <input
+                type="number"
+                min={1}
+                value={form.series}
+                onChange={(e) => setForm((p) => ({ ...p, series: e.target.value as any }))}
+                className="w-full rounded-xl border border-slate-200 px-2 py-3 text-center text-lg font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+
+            {/* Reps por serie */}
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="text-xs font-medium text-slate-700">
+                  {numSeries === 1 ? 'Repeticiones' : 'Reps por serie'}
+                </label>
+                {numSeries > 1 && repsSync[0] !== '' && (
+                  <button
+                    type="button"
+                    onClick={() => fillAllReps(repsSync[0])}
+                    className="text-xs text-blue-500 hover:text-blue-700 transition-colors"
+                  >
+                    Igual en todas
+                  </button>
+                )}
+              </div>
+              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(numSeries, 4)}, minmax(0, 1fr))` }}>
+                {repsSync.map((r, i) => (
+                  <div key={i} className="flex flex-col items-center gap-1">
+                    {numSeries > 1 && (
+                      <span className="text-[10px] font-semibold text-slate-400">S{i + 1}</span>
+                    )}
+                    <input
+                      type="text"
+                      placeholder="—"
+                      value={r}
+                      onChange={(e) => setRep(i, e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 px-2 py-3 text-center text-lg font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Pesos por serie */}
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <label className="text-xs font-medium text-slate-700">
-                  {numSeries === 1 ? 'Peso (kg)' : `Peso por serie (kg)`}
+                  {numSeries === 1 ? 'Peso (kg)' : 'Peso por serie (kg)'}
                 </label>
                 {numSeries > 1 && pesosSync[0] !== '' && (
                   <button

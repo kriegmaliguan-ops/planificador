@@ -14,7 +14,7 @@ interface DateNavProps {
 
 export function DateNav({ fecha }: DateNavProps) {
   const router = useRouter()
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago' }).format(new Date())
   const esHoy = fecha === hoy
 
   function navegar(dias: number) {

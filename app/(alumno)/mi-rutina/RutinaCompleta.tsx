@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, Fragment } from 'react'
-import { PlayCircle, Moon, Dumbbell, Clock, ChevronDown } from 'lucide-react'
+import Link from 'next/link'
+import { PlayCircle, Moon, Dumbbell, Clock, ChevronDown, ClipboardList } from 'lucide-react'
 
 type DiaSemana = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo'
 
@@ -18,8 +19,15 @@ const DIAS_SHORT: Record<DiaSemana, string> = {
 }
 
 function getTodayDia(): DiaSemana {
-  const days: DiaSemana[] = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
-  return days[new Date().getDay()]
+  const dayName = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Santiago',
+    weekday: 'long',
+  }).format(new Date())
+  const map: Record<string, DiaSemana> = {
+    Sunday: 'domingo', Monday: 'lunes', Tuesday: 'martes',
+    Wednesday: 'miercoles', Thursday: 'jueves', Friday: 'viernes', Saturday: 'sabado',
+  }
+  return map[dayName] ?? 'lunes'
 }
 
 function getMes(semana: number) { return Math.ceil(semana / 4) }
@@ -175,11 +183,21 @@ export function RutinaCompleta({ rutina }: Props) {
                   {ejercicios.length} ejercicio{ejercicios.length !== 1 ? 's' : ''} · Sem {semanaActiva}
                 </p>
               </div>
-              {diaActivo === hoy && (
-                <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
-                  ¡Hoy!
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {diaActivo === hoy && (
+                  <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
+                    ¡Hoy!
+                  </span>
+                )}
+                {/* Botón Registrar */}
+                <Link
+                  href={`/rutina?semana=${semanaActiva}&dia=${diaActivo}`}
+                  className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-500 active:bg-blue-700 transition-colors"
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  Registrar
+                </Link>
+              </div>
             </div>
 
             {/* Lista de ejercicios */}

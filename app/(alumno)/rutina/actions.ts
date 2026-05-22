@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { getHoyChile } from '@/lib/utils'
 
 export async function registrarProgreso(data: {
   rutinaEjercicioId: string
@@ -20,7 +21,7 @@ export async function registrarProgreso(data: {
   } = await supabase.auth.getUser()
   if (!user) return { error: 'No autenticado.' }
 
-  const hoy = data.fecha ?? new Date().toISOString().split('T')[0]
+  const hoy = data.fecha ?? getHoyChile()
 
   // Verificar si ya hay un registro hoy para este ejercicio
   const { data: existente } = await supabase
@@ -68,7 +69,7 @@ export async function registrarBienestar(data: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'No autenticado.' }
 
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = getHoyChile()
 
   const { data: existente } = await supabase
     .from('registros_bienestar')

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { typed } from '@/lib/supabase/types-helper'
+import { getHoyChile } from '@/lib/utils'
 import { ProgresoCliente } from '@/components/alumno/ProgresoCliente'
 import type { Profile, GrupoMuscular } from '@/lib/types/database'
 
@@ -36,6 +37,12 @@ export interface SesionHistorial {
   registros: RegistroHistorial[]
 }
 
+export interface RegistroBienestar {
+  fecha: string
+  descanso: number
+  notas: string | null
+}
+
 // ── Helpers de agregación ─────────────────────────────────────────────────────
 
 function avgOrNull(nums: number[]): number | null {
@@ -43,15 +50,22 @@ function avgOrNull(nums: number[]): number | null {
   return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10
 }
 
+function getHoyDate(): Date {
+  // Fecha de hoy en Chile, parseada como Date local
+  const hoy = getHoyChile()
+  const [y, m, d] = hoy.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 function buildDiario(
   bienestar: { fecha: string; descanso: number }[],
   rpe: { fecha: string; rpe: number }[]
 ): PuntoTemporal[] {
-  const hoy = new Date()
+  const hoy = getHoyDate()
   return Array.from({ length: 14 }, (_, i) => {
     const d = new Date(hoy)
     d.setDate(d.getDate() - (13 - i))
-    const key = d.toISOString().split('T')[0]
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     const label = d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' })
     const b = bienestar.find((x) => x.fecha === key)
     const rpeDay = rpe.filter((x) => x.fecha === key).map((x) => x.rpe)
@@ -88,13 +102,15 @@ function buildSemanal(
   bienestar: { fecha: string; descanso: number }[],
   rpe: { fecha: string; rpe: number }[]
 ): PuntoTemporal[] {
-  const hoy = new Date()
-  const currentWeek = getISOWeekKey(hoy.toISOString().split('T')[0])
+  const hoy = getHoyDate()
+  const hoyStr = getHoyChile()
+  const currentWeek = getISOWeekKey(hoyStr)
   const semanas: string[] = []
   for (let i = 7; i >= 0; i--) {
     const d = new Date(hoy)
     d.setDate(d.getDate() - i * 7)
-    semanas.push(getISOWeekKey(d.toISOString().split('T')[0]))
+    const str = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    semanas.push(getISOWeekKey(str))
   }
   const unique = [...new Set(semanas)].slice(-8)
 
@@ -118,7 +134,7 @@ function buildMensual(
   bienestar: { fecha: string; descanso: number }[],
   rpe: { fecha: string; rpe: number }[]
 ): PuntoTemporal[] {
-  const hoy = new Date()
+  const hoy = getHoyDate()
   return Array.from({ length: 6 }, (_, i) => {
     const d = new Date(hoy.getFullYear(), hoy.getMonth() - (5 - i), 1)
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -138,9 +154,9 @@ function buildMensual(
 
 async function getDatos(alumnoId: string) {
   const supabase = await createClient()
-  const desde = new Date()
+  const desde = getHoyDate()
   desde.setDate(desde.getDate() - 180)
-  const desdeStr = desde.toISOString().split('T')[0]
+  const desdeStr = `${desde.getFullYear()}-${String(desde.getMonth() + 1).padStart(2, '0')}-${String(desde.getDate()).padStart(2, '0')}`
 
   const [bienestarResult, progresoResult] = await Promise.all([
     supabase
@@ -148,7 +164,7 @@ async function getDatos(alumnoId: string) {
       .select('fecha, descanso, notas')
       .eq('alumno_id', alumnoId)
       .gte('fecha', desdeStr)
-      .order('fecha', { ascending: true }) as unknown as Promise<{ data: any[] | null }>,
+      .order('fecha', { ascending: false }) as unknown as Promise<{ data: any[] | null }>,
     supabase
       .from('registros_progreso')
       .select(`
@@ -166,7 +182,7 @@ async function getDatos(alumnoId: string) {
       .order('created_at', { ascending: true }) as unknown as Promise<{ data: any[] | null }>,
   ])
 
-  const bienestar = (bienestarResult.data ?? []) as { fecha: string; descanso: number; notas: string | null }[]
+  const bienestar = (bienestarResult.data ?? []) as RegistroBienestar[]
   const progreso = (progresoResult.data ?? []) as any[]
 
   // RPE records (solo los que tienen rpe)
@@ -203,7 +219,7 @@ async function getDatos(alumnoId: string) {
     registros,
   }))
 
-  return { estadisticas, historial, totalRegistros: progreso.length }
+  return { estadisticas, historial, bienestar, totalRegistros: progreso.length }
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -218,12 +234,13 @@ export default async function ProgresoPage() {
   )
   if (!profile) redirect('/login')
 
-  const { estadisticas, historial, totalRegistros } = await getDatos(profile.id)
+  const { estadisticas, historial, bienestar, totalRegistros } = await getDatos(profile.id)
 
   return (
     <ProgresoCliente
       estadisticas={estadisticas}
       historial={historial}
+      bienestar={bienestar}
       totalRegistros={totalRegistros}
     />
   )

@@ -8,6 +8,7 @@ import type {
   PuntoTemporal,
   SesionHistorial,
   RegistroHistorial,
+  RegistroBienestar,
 } from '@/app/(alumno)/progreso/page'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -15,6 +16,12 @@ import type {
 function formatFecha(fecha: string): string {
   return new Date(fecha + 'T00:00:00').toLocaleDateString('es-AR', {
     weekday: 'long', day: 'numeric', month: 'long',
+  })
+}
+
+function formatFechaCorta(fecha: string): string {
+  return new Date(fecha + 'T00:00:00').toLocaleDateString('es-AR', {
+    weekday: 'short', day: 'numeric', month: 'short',
   })
 }
 
@@ -62,7 +69,6 @@ function MiniBarChart({
 }
 
 function XAxisLabels({ puntos }: { puntos: PuntoTemporal[] }) {
-  // Show every Nth label to avoid crowding
   const step = puntos.length > 10 ? 2 : 1
   return (
     <div className="flex gap-0.5 mt-1">
@@ -111,32 +117,6 @@ function EstadisticasTab({ estadisticas }: { estadisticas: DatosEstadisticas }) 
         </div>
       ) : (
         <>
-          {/* Sueño */}
-          <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
-            <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
-              <Moon className="h-4 w-4 text-slate-400" />
-              <p className="text-sm font-semibold text-slate-700">Calidad de sueño</p>
-              <span className="ml-auto text-xs text-slate-400">escala 1–7</span>
-            </div>
-            <div className="px-4 py-3">
-              <MiniBarChart
-                puntos={puntos}
-                campo="descanso"
-                maxVal={7}
-                colorFn={(v) => DESCANSO_CONFIG[Math.round(v)]?.color.split(' ')[0] ?? 'bg-slate-200'}
-              />
-              <XAxisLabels puntos={puntos} />
-            </div>
-            {/* Leyenda */}
-            <div className="flex flex-wrap gap-1.5 border-t border-slate-50 px-4 py-2.5">
-              {[1,4,7].map((n) => (
-                <span key={n} className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${DESCANSO_CONFIG[n].color}`}>
-                  {n} – {DESCANSO_CONFIG[n].label}
-                </span>
-              ))}
-            </div>
-          </div>
-
           {/* RPE */}
           <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
             <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
@@ -165,6 +145,57 @@ function EstadisticasTab({ estadisticas }: { estadisticas: DatosEstadisticas }) 
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+// ── Sueño Tab ─────────────────────────────────────────────────────────────────
+
+function SuenoTab({ bienestar }: { bienestar: RegistroBienestar[] }) {
+  if (bienestar.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-2 rounded-2xl bg-white px-6 py-12 text-center ring-1 ring-slate-100">
+        <Moon className="h-12 w-12 text-slate-200" />
+        <p className="text-sm text-slate-400">Aún no hay registros de sueño.</p>
+        <p className="text-xs text-slate-400">Completá la encuesta de sueño en la sección Rutina.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
+        <Moon className="h-4 w-4 text-slate-400" />
+        <p className="text-sm font-semibold text-slate-700">Historial de sueño</p>
+        <span className="ml-auto text-xs text-slate-400">{bienestar.length} registros</span>
+      </div>
+
+      {/* Tabla */}
+      <div className="divide-y divide-slate-50">
+        {bienestar.map((b) => {
+          const cfg = DESCANSO_CONFIG[b.descanso]
+          return (
+            <div key={b.fecha} className="flex items-center gap-3 px-4 py-3">
+              {/* Fecha */}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-slate-800 capitalize">
+                  {formatFechaCorta(b.fecha)}
+                </p>
+                {b.notas && (
+                  <p className="mt-0.5 text-xs text-slate-500 italic truncate">"{b.notas}"</p>
+                )}
+              </div>
+              {/* Badge calidad */}
+              {cfg && (
+                <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${cfg.color}`}>
+                  {b.descanso} – {cfg.label}
+                </span>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -264,11 +295,12 @@ function RegistroRow({ registro: r }: { registro: RegistroHistorial }) {
 interface Props {
   estadisticas: DatosEstadisticas
   historial: SesionHistorial[]
+  bienestar?: RegistroBienestar[]
   totalRegistros: number
 }
 
-export function ProgresoCliente({ estadisticas, historial, totalRegistros }: Props) {
-  const [tab, setTab] = useState<'estadisticas' | 'historial'>('estadisticas')
+export function ProgresoCliente({ estadisticas, historial, bienestar = [], totalRegistros }: Props) {
+  const [tab, setTab] = useState<'estadisticas' | 'sueno' | 'historial'>('estadisticas')
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6 space-y-4">
@@ -297,7 +329,15 @@ export function ProgresoCliente({ estadisticas, historial, totalRegistros }: Pro
             tab === 'estadisticas' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
           }`}
         >
-          Estadísticas
+          RPE
+        </button>
+        <button
+          onClick={() => setTab('sueno')}
+          className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${
+            tab === 'sueno' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+          }`}
+        >
+          Sueño
         </button>
         <button
           onClick={() => setTab('historial')}
@@ -309,10 +349,9 @@ export function ProgresoCliente({ estadisticas, historial, totalRegistros }: Pro
         </button>
       </div>
 
-      {tab === 'estadisticas'
-        ? <EstadisticasTab estadisticas={estadisticas} />
-        : <HistorialTab historial={historial} totalRegistros={totalRegistros} />
-      }
+      {tab === 'estadisticas' && <EstadisticasTab estadisticas={estadisticas} />}
+      {tab === 'sueno' && <SuenoTab bienestar={bienestar} />}
+      {tab === 'historial' && <HistorialTab historial={historial} totalRegistros={totalRegistros} />}
     </div>
   )
 }

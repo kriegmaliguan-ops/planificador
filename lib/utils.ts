@@ -25,9 +25,24 @@ export const DIAS_LABELS: Record<string, string> = {
   domingo: 'Domingo',
 }
 
+/** Devuelve la fecha de hoy en zona horaria de Chile (YYYY-MM-DD) */
+export function getHoyChile(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Santiago',
+  }).format(new Date())
+}
+
+/** Devuelve el día de la semana de hoy en zona horaria de Chile */
 export function getDiaHoy(): string {
-  const dias = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']
-  return dias[new Date().getDay()]
+  const dayName = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Santiago',
+    weekday: 'long',
+  }).format(new Date())
+  const diasMap: Record<string, string> = {
+    Sunday: 'domingo', Monday: 'lunes', Tuesday: 'martes',
+    Wednesday: 'miercoles', Thursday: 'jueves', Friday: 'viernes', Saturday: 'sabado',
+  }
+  return diasMap[dayName] ?? 'lunes'
 }
 
 /** Colores Tailwind para cada grupo muscular */

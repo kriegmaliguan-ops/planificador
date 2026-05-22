@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
-import { Dumbbell, PartyPopper, CalendarDays, Moon } from 'lucide-react'
+import Link from 'next/link'
+import { Dumbbell, PartyPopper, CalendarDays, Moon, ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { typed } from '@/lib/supabase/types-helper'
-import { getDiaHoy, DIAS_LABELS, DIAS_SEMANA } from '@/lib/utils'
+import { getHoyChile, getDiaHoy, DIAS_LABELS, DIAS_SEMANA } from '@/lib/utils'
 import { EjercicioHoyCard } from '@/components/alumno/EjercicioHoyCard'
 import { BienestarCard } from '@/components/alumno/BienestarCard'
 import { DateNav } from '@/components/alumno/DateNav'
@@ -29,7 +30,12 @@ function getDiaFromFecha(fecha: string): DiaSemana {
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 
-async function getDatosDia(alumnoId: string, fecha: string) {
+async function getDatosDia(
+  alumnoId: string,
+  fecha: string,
+  semanaOverride?: number,
+  diaOverride?: DiaSemana
+) {
   const supabase = await createClient()
   const diaDelFecha = getDiaFromFecha(fecha)
 
@@ -38,7 +44,7 @@ async function getDatosDia(alumnoId: string, fecha: string) {
     .select(`
       id, nombre,
       dias:rutina_dias(
-        id, dia_semana, nombre, es_descanso,
+        id, dia_semana, semana_numero, nombre, es_descanso,
         ejercicios:rutina_ejercicios(
           id, series, repeticiones, peso_objetivo, descanso_segundos, notas,
           ejercicio:ejercicios(id, nombre, video_url, grupos:ejercicio_grupos(grupo:grupos_musculares(id, nombre)))
@@ -51,7 +57,16 @@ async function getDatosDia(alumnoId: string, fecha: string) {
 
   if (!rawRutina) return { rutina: null, ejerciciosHoy: [], semana: [], bienestarHoy: null }
 
-  const diaHoy = (rawRutina.dias ?? []).find((d: any) => d.dia_semana === diaDelFecha)
+  // Seleccionar el día: por semana/dia override o por día de la fecha
+  let diaHoy: any
+  if (semanaOverride !== undefined && diaOverride) {
+    diaHoy = (rawRutina.dias ?? []).find(
+      (d: any) => d.dia_semana === diaOverride && d.semana_numero === semanaOverride
+    )
+  } else {
+    diaHoy = (rawRutina.dias ?? []).find((d: any) => d.dia_semana === diaDelFecha)
+  }
+
   const esDescanso = diaHoy?.es_descanso ?? false
   const rutinaEjerciciosIds: string[] = diaHoy && !esDescanso
     ? (diaHoy.ejercicios ?? []).map((re: any) => re.id)
@@ -131,6 +146,7 @@ async function getDatosDia(alumnoId: string, fecha: string) {
   return {
     rutina: { id: rawRutina.id, nombre: rawRutina.nombre },
     diaHoyNombre: diaHoy?.nombre ?? null,
+    semanaNumero: diaHoy?.semana_numero ?? null,
     esDescanso,
     ejerciciosHoy,
     semana,
@@ -143,7 +159,7 @@ async function getDatosDia(alumnoId: string, fecha: string) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 interface PageProps {
-  searchParams: Promise<{ fecha?: string }>
+  searchParams: Promise<{ fecha?: string; semana?: string; dia?: string }>
 }
 
 export default async function RutinaHoyPage({ searchParams }: PageProps) {
@@ -156,16 +172,24 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
   )
   if (!profile) redirect('/login')
 
-  // Determinar fecha a mostrar
-  const { fecha: fechaParam } = await searchParams
-  const hoyStr = new Date().toISOString().split('T')[0]
-  const fecha = fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) && fechaParam <= hoyStr
-    ? fechaParam
-    : hoyStr
+  // Fecha en Chile
+  const hoyStr = getHoyChile()
+  const { fecha: fechaParam, semana: semanaParam, dia: diaParam } = await searchParams
+
+  // Modo semana/dia: desde mi-rutina
+  const semanaOverride = semanaParam ? Number(semanaParam) : undefined
+  const diaOverride = (diaParam as DiaSemana | undefined)
+  const modoSemana = semanaOverride !== undefined && !!diaOverride
+
+  // En modo semana: registrar para hoy
+  const fecha = modoSemana
+    ? hoyStr
+    : (fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) && fechaParam <= hoyStr ? fechaParam : hoyStr)
   const esHoy = fecha === hoyStr
 
-  const { rutina, diaHoyNombre, esDescanso, ejerciciosHoy, semana, hechos, bienestarHoy, diaDelFecha } =
-    await getDatosDia(profile.id, fecha)
+  const {
+    rutina, diaHoyNombre, semanaNumero, esDescanso, ejerciciosHoy, semana, hechos, bienestarHoy, diaDelFecha,
+  } = await getDatosDia(profile.id, fecha, semanaOverride, diaOverride)
 
   if (!rutina) {
     return (
@@ -179,7 +203,9 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
     )
   }
 
-  const diaLabel = diaDelFecha ? DIAS_LABELS[diaDelFecha] : ''
+  const diaLabel = modoSemana && diaOverride
+    ? DIAS_LABELS[diaOverride]
+    : (diaDelFecha ? DIAS_LABELS[diaDelFecha] : '')
   const totalEjercicios = ejerciciosHoy.length
   const completados = hechos ?? 0
 
@@ -193,8 +219,18 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
   return (
     <div className="mx-auto max-w-lg px-4 py-6 space-y-4">
 
-      {/* Navegador de fecha */}
-      <DateNav fecha={fecha} />
+      {/* Botón volver (modo semana) o DateNav normal */}
+      {modoSemana ? (
+        <Link
+          href="/mi-rutina"
+          className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Volver a mi rutina
+        </Link>
+      ) : (
+        <DateNav fecha={fecha} />
+      )}
 
       {/* Header del día */}
       <div className="rounded-2xl bg-slate-900 px-5 py-5 text-white">
@@ -202,6 +238,9 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
           <div>
             <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
               {rutina.nombre}
+              {modoSemana && semanaNumero && (
+                <span className="ml-2 text-slate-500">· Sem {semanaNumero}</span>
+              )}
             </p>
             <h1 className="mt-1 text-2xl font-bold">
               {diaHoyNombre || diaLabel}
@@ -229,8 +268,8 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
         )}
       </div>
 
-      {/* Encuesta de sueño */}
-      <BienestarCard registroHoy={bienestarHoy} />
+      {/* Encuesta de sueño (solo en modo normal/hoy) */}
+      {!modoSemana && <BienestarCard registroHoy={bienestarHoy} />}
 
       {/* Día de descanso */}
       {esDescanso ? (
@@ -256,33 +295,35 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
           </div>
 
           {/* Vista de la semana */}
-          <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
-            <p className="border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Tu semana
-            </p>
-            {semana.map(({ dia, nombre, cantEjercicios, esDescanso: esDes }) => (
-              <div
-                key={dia}
-                className={`flex items-center justify-between px-4 py-3 ${dia === diaDelFecha ? 'bg-blue-50' : ''}`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className={`text-sm font-medium ${dia === diaDelFecha ? 'text-blue-700' : 'text-slate-700'}`}>
-                    {DIAS_LABELS[dia]}
-                  </span>
-                  {nombre && <span className="text-xs text-slate-600">{nombre}</span>}
+          {!modoSemana && (
+            <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+              <p className="border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Tu semana
+              </p>
+              {semana.map(({ dia, nombre, cantEjercicios, esDescanso: esDes }) => (
+                <div
+                  key={dia}
+                  className={`flex items-center justify-between px-4 py-3 ${dia === diaDelFecha ? 'bg-blue-50' : ''}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`text-sm font-medium ${dia === diaDelFecha ? 'text-blue-700' : 'text-slate-700'}`}>
+                      {DIAS_LABELS[dia]}
+                    </span>
+                    {nombre && <span className="text-xs text-slate-600">{nombre}</span>}
+                  </div>
+                  {esDes ? (
+                    <span className="text-xs text-slate-500">Descanso</span>
+                  ) : cantEjercicios > 0 ? (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                      {cantEjercicios} ejerc.
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-500">Descanso</span>
+                  )}
                 </div>
-                {esDes ? (
-                  <span className="text-xs text-slate-500">Descanso</span>
-                ) : cantEjercicios > 0 ? (
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                    {cantEjercicios} ejerc.
-                  </span>
-                ) : (
-                  <span className="text-xs text-slate-500">Descanso</span>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <>
