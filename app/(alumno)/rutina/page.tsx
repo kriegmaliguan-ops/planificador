@@ -269,6 +269,9 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
         )}
       </div>
 
+      {/* Sueño — primero que registran, visible en cualquier día */}
+      {!modoSemana && <BienestarCard registroHoy={bienestarHoy} fecha={fecha} />}
+
       {/* Día de descanso */}
       {esDescanso ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-6 py-10 text-center shadow-sm ring-1 ring-slate-100">
@@ -313,8 +316,6 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
         </>
       )}
 
-      {/* Sueño — siempre visible (cualquier día, cualquier fecha) */}
-      {!modoSemana && <BienestarCard registroHoy={bienestarHoy} fecha={fecha} />}
     </div>
   )
 }
