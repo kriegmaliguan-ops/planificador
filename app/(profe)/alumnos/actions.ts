@@ -141,10 +141,20 @@ export async function enviarResetContrasena(
   const { data: alumnoData, error: userError } = await admin.auth.admin.getUserById(alumnoId)
   if (userError || !alumnoData.user?.email) return { error: 'No se encontró el alumno.' }
 
-  // Enviar email de recuperación
+  // Usar cliente anónimo para resetPasswordForEmail (evita conflictos con el server client SSR)
+  const { createClient: createSupabaseJs } = await import('@supabase/supabase-js')
+  const anonClient = createSupabaseJs(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false } }
+  )
+
   const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://planificador-virid.vercel.app'}/auth/callback?next=/auth/nueva-contrasena`
-  const { error } = await supabase.auth.resetPasswordForEmail(alumnoData.user.email, { redirectTo })
-  if (error) return { error: 'No se pudo enviar el email. Intentá de nuevo.' }
+  const { error } = await anonClient.auth.resetPasswordForEmail(alumnoData.user.email, { redirectTo })
+  if (error) {
+    console.error('resetPasswordForEmail error:', error.message)
+    return { error: 'No se pudo enviar el email. Intentá de nuevo.' }
+  }
 
   return {}
 }
