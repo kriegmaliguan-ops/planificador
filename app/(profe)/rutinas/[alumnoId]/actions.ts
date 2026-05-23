@@ -10,7 +10,8 @@ import type { DiaSemana } from '@/lib/types/database'
 
 export async function crearRutina(
   alumnoId: string,
-  nombre: string
+  nombre: string,
+  fechaInicio?: string | null
 ): Promise<{ error?: string; id?: string }> {
   const supabase = await createClient()
   const {
@@ -24,7 +25,7 @@ export async function crearRutina(
 
   const { data, error } = typed<{ id: string }>(
     await (supabase.from('rutinas') as any)
-      .insert({ alumno_id: alumnoId, nombre, activa: true, created_by: user.id })
+      .insert({ alumno_id: alumnoId, nombre, activa: true, created_by: user.id, fecha_inicio: fechaInicio ?? null })
       .select('id')
       .single()
   )

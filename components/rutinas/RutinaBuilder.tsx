@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, useState, useTransition } from 'react'
-import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck } from 'lucide-react'
+import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck, CalendarDays } from 'lucide-react'
 import { DIAS_SEMANA, DIAS_LABELS } from '@/lib/utils'
 import {
   crearRutina,
@@ -40,6 +40,19 @@ function initWeekDias(): Record<DiaSemana, EstadoDia> {
 
 // ── Crear rutina ──────────────────────────────────────────────────────────────
 
+function getTodayLocal(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function getProxLunes(): string {
+  const d = new Date()
+  const day = d.getDay() // 0=Dom, 1=Lun, ...6=Sab
+  const daysToAdd = day === 0 ? 1 : 8 - day
+  d.setDate(d.getDate() + daysToAdd)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function CrearRutinaForm({
   alumnoId,
   alumnoNombre,
@@ -50,6 +63,7 @@ function CrearRutinaForm({
   onCreada: (rutina: RutinaData) => void
 }) {
   const [nombre, setNombre] = useState('')
+  const [fechaInicio, setFechaInicio] = useState<string>(getTodayLocal)
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -57,13 +71,14 @@ function CrearRutinaForm({
     e.preventDefault()
     if (!nombre.trim()) return
     startTransition(async () => {
-      const result = await crearRutina(alumnoId, nombre.trim())
+      const result = await crearRutina(alumnoId, nombre.trim(), fechaInicio || null)
       if (result.error) { setError(result.error); return }
 
       onCreada({
         id: result.id!,
         nombre: nombre.trim(),
         activa: true,
+        fecha_inicio: fechaInicio || null,
         semanas: [1],
         dias: { 1: initWeekDias() },
       })
@@ -94,6 +109,34 @@ function CrearRutinaForm({
               required
             />
           </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
+                  Inicio — Semana 1
+                </span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setFechaInicio(getProxLunes())}
+                className="text-xs font-medium text-blue-600 hover:text-blue-500 transition-colors"
+              >
+                Próximo lunes →
+              </button>
+            </div>
+            <input
+              type="date"
+              value={fechaInicio}
+              onChange={(e) => setFechaInicio(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            />
+            <p className="text-xs text-slate-400">
+              El alumno verá la rutina a partir de esta fecha.
+            </p>
+          </div>
+
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"

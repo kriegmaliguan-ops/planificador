@@ -34,6 +34,7 @@ export interface RutinaData {
   id: string
   nombre: string
   activa: boolean
+  fecha_inicio: string | null
   semanas: number[]                                          // [1, 2, 3, ...]
   dias: Record<number, Record<DiaSemana, EstadoDia>>        // semana → dia → estado
 }
@@ -64,7 +65,7 @@ async function getData(alumnoId: string) {
     supabase
       .from('rutinas')
       .select(`
-        id, nombre, activa,
+        id, nombre, activa, fecha_inicio,
         dias:rutina_dias(
           id, dia_semana, nombre, orden, es_descanso, semana_numero,
           ejercicios:rutina_ejercicios(
@@ -131,6 +132,7 @@ async function getData(alumnoId: string) {
       id: rawRutina.id,
       nombre: rawRutina.nombre,
       activa: rawRutina.activa,
+      fecha_inicio: rawRutina.fecha_inicio ?? null,
       semanas: Array.from(semanasSet).sort((a, b) => a - b),
       dias: diasBySemana,
     }

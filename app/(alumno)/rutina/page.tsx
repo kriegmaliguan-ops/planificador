@@ -104,7 +104,7 @@ async function getDatosDia(
   const { data: rawRutina } = await supabase
     .from('rutinas')
     .select(`
-      id, nombre,
+      id, nombre, fecha_inicio,
       dias:rutina_dias(
         id, dia_semana, semana_numero, nombre, es_descanso,
         ejercicios:rutina_ejercicios(
@@ -117,7 +117,7 @@ async function getDatosDia(
     .eq('activa', true)
     .maybeSingle() as { data: any | null }
 
-  if (!rawRutina) return { rutina: null, ejerciciosHoy: [], semana: [], bienestarHoy: null }
+  if (!rawRutina) return { rutina: null, fechaInicio: null, ejerciciosHoy: [], semana: [], bienestarHoy: null }
 
   // Seleccionar el día: por semana/dia override o por día de la fecha
   let diaHoy: any
@@ -231,6 +231,7 @@ async function getDatosDia(
 
   return {
     rutina: { id: rawRutina.id, nombre: rawRutina.nombre },
+    fechaInicio: (rawRutina.fecha_inicio as string | null) ?? null,
     diaHoyNombre: diaHoy?.nombre ?? null,
     semanaNumero: diaHoy?.semana_numero ?? null,
     esDescanso,
@@ -274,7 +275,7 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
   const esHoy = fecha === hoyStr
 
   const [
-    { rutina, diaHoyNombre, semanaNumero, esDescanso, ejerciciosHoy, semana, hechos, bienestarHoy, diaDelFecha },
+    { rutina, fechaInicio, diaHoyNombre, semanaNumero, esDescanso, ejerciciosHoy, semana, hechos, bienestarHoy, diaDelFecha },
     rachaInfo,
   ] = await Promise.all([
     getDatosDia(profile.id, fecha, semanaOverride, diaOverride),
@@ -289,6 +290,29 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
         <p className="mt-2 text-sm text-slate-500">
           Tu profe todavía no te asignó una rutina. ¡Ya llegará!
         </p>
+      </div>
+    )
+  }
+
+  // Rutina asignada pero todavía no empezó
+  if (fechaInicio && fechaInicio > hoyStr) {
+    const [fy, fm, fd] = fechaInicio.split('-').map(Number)
+    const fechaFormateada = new Date(fy, fm - 1, fd).toLocaleDateString('es-AR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    })
+    return (
+      <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100">
+          <CalendarDays className="h-8 w-8 text-blue-600" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-800">Tu rutina todavía no empezó</h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Tu profe programó el inicio para el{' '}
+          <span className="font-semibold text-slate-700">{fechaFormateada}</span>.
+        </p>
+        <p className="mt-1 text-xs text-slate-400">¡Preparate, que se viene!</p>
       </div>
     )
   }
