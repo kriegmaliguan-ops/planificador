@@ -128,6 +128,20 @@ async function getData(alumnoId: string) {
     if (semanasSet.size === 0) semanasSet.add(1)
     if (!diasBySemana[1]) diasBySemana[1] = initWeek()
 
+    // Cross-reference: si el join no devolvió el nombre del ejercicio, tomarlo de ejerciciosLib
+    const ejLibMap = new Map(ejerciciosLib.map((e) => [e.id, e]))
+    for (const semana of Object.values(diasBySemana)) {
+      for (const dia of Object.values(semana)) {
+        dia.ejercicios = dia.ejercicios.map((ej) => {
+          if (!ej.nombre && ejLibMap.has(ej.ejercicio_id)) {
+            const lib = ejLibMap.get(ej.ejercicio_id)!
+            return { ...ej, nombre: lib.nombre, grupos: lib.grupos }
+          }
+          return ej
+        })
+      }
+    }
+
     rutinaData = {
       id: rawRutina.id,
       nombre: rawRutina.nombre,

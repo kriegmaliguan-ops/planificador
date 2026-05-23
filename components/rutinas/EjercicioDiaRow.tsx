@@ -59,7 +59,9 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, onRemove, onUpdate }: Eje
       <div className="flex items-center gap-3 px-4 py-3">
         {/* Nombre + grupos */}
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-slate-900 truncate">{ejercicio.nombre}</p>
+          <p className="font-semibold text-slate-900 leading-snug truncate">
+            {ejercicio.nombre || '(sin nombre)'}
+          </p>
           {ejercicio.grupos.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
               {ejercicio.grupos.map((g) => (
@@ -151,6 +153,9 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, onRemove, onUpdate }: Eje
       {/* Fila expandida (móvil) + notas */}
       {(expanded) && (
         <div className="border-t border-slate-100 px-4 py-3 sm:hidden">
+          <p className="mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wide truncate">
+            {ejercicio.nombre || '(sin nombre)'}
+          </p>
           <div className="grid grid-cols-2 gap-3">
             {[
               { label: 'Series', key: 'series', type: 'number' },
