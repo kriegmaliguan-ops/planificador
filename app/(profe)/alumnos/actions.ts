@@ -124,6 +124,31 @@ export async function crearAlumno(
   }
 }
 
+export async function enviarResetContrasena(
+  alumnoId: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+
+  // Solo profes
+  const { data: profe } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single() as { data: { role: string } | null }
+  if (profe?.role !== 'profe') return { error: 'Sin permisos.' }
+
+  // Obtener email del alumno via admin
+  const admin = createAdminClient()
+  const { data: alumnoData, error: userError } = await admin.auth.admin.getUserById(alumnoId)
+  if (userError || !alumnoData.user?.email) return { error: 'No se encontró el alumno.' }
+
+  // Enviar email de recuperación
+  const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://planificador-virid.vercel.app'}/auth/callback?next=/auth/nueva-contrasena`
+  const { error } = await supabase.auth.resetPasswordForEmail(alumnoData.user.email, { redirectTo })
+  if (error) return { error: 'No se pudo enviar el email. Intentá de nuevo.' }
+
+  return {}
+}
+
 export async function eliminarAlumno(alumnoId: string): Promise<{ error?: string }> {
   try {
     const supabase = createAdminClient()

@@ -1,10 +1,11 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Mail, CalendarDays, Dumbbell, ChevronRight, TrendingUp, User } from 'lucide-react'
+import { ArrowLeft, Mail, CalendarDays, Dumbbell, ChevronRight, TrendingUp, User, KeyRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { typed, typedList } from '@/lib/supabase/types-helper'
 import { EliminarAlumnoBtn } from '@/components/alumnos/EliminarAlumnoBtn'
 import { SuspenderAlumnoBtn } from '@/components/alumnos/SuspenderAlumnoBtn'
+import { ResetPasswordBtn } from '@/components/alumnos/ResetPasswordBtn'
 import type { Profile, Rutina } from '@/lib/types/database'
 
 interface Props {
@@ -202,8 +203,20 @@ export default async function AlumnoPerfilPage({ params }: Props) {
         )}
       </div>
 
+      {/* Acceso y contraseña */}
+      <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+        <div className="flex items-center gap-2 mb-3">
+          <KeyRound className="h-4 w-4 text-slate-400" />
+          <p className="text-sm font-semibold text-slate-900">Acceso</p>
+        </div>
+        <p className="mb-3 text-xs text-slate-500">
+          Mandá un email al alumno para que cambie su contraseña. El link expira en 1 hora.
+        </p>
+        <ResetPasswordBtn alumnoId={id} email={profile.email} />
+      </div>
+
       {/* Zona de peligro */}
-      <div className="mt-6 rounded-2xl border border-red-100 bg-red-50/50 p-5">
+      <div className="mt-4 rounded-2xl border border-red-100 bg-red-50/50 p-5">
         <p className="mb-3 text-sm font-semibold text-red-700">Zona de peligro</p>
         <div className="flex flex-wrap gap-3">
           <SuspenderAlumnoBtn alumnoId={id} suspendido={profile.suspendido ?? false} />
