@@ -15,8 +15,13 @@ interface Props {
 async function getAlumnoData(id: string) {
   const supabase = await createClient()
 
-  const [profileResult, rutinasResult] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', id).eq('role', 'alumno').single(),
+  const [profileResult, rutinasResult] = await Promise.allSettled([
+    supabase
+      .from('profiles')
+      .select('id, email, nombre, apellido, avatar_url, role, peso, altura, fecha_nacimiento, objetivo, notas_profe, suspendido, password_changed, created_at, updated_at')
+      .eq('id', id)
+      .eq('role', 'alumno')
+      .single(),
     supabase
       .from('rutinas')
       .select('id, nombre, activa, fecha_inicio, fecha_fin, created_at')
@@ -26,8 +31,10 @@ async function getAlumnoData(id: string) {
   ])
 
   return {
-    profile: typed<Profile>(profileResult).data,
-    rutinas: typedList<Pick<Rutina, 'id' | 'nombre' | 'activa' | 'fecha_inicio' | 'fecha_fin' | 'created_at'>>(rutinasResult).data,
+    profile: profileResult.status === 'fulfilled' ? typed<Profile>(profileResult.value).data : null,
+    rutinas: rutinasResult.status === 'fulfilled'
+      ? typedList<Pick<Rutina, 'id' | 'nombre' | 'activa' | 'fecha_inicio' | 'fecha_fin' | 'created_at'>>(rutinasResult.value).data
+      : [],
   }
 }
 
