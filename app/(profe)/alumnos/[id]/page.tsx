@@ -219,7 +219,7 @@ export default async function AlumnoPerfilPage({ params }: Props) {
         <p className="mb-3 text-xs text-slate-500">
           Mandá un email al alumno para que cambie su contraseña. El link expira en 1 hora.
         </p>
-        <ResetPasswordBtn alumnoId={id} email={profile.email} />
+        <ResetPasswordBtn alumnoId={id} />
       </div>
 
       {/* Zona de peligro */}

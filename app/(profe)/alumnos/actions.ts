@@ -124,39 +124,36 @@ export async function crearAlumno(
   }
 }
 
-export async function enviarResetContrasena(
+export async function resetearContrasenaAlumno(
   alumnoId: string
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; password?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'No autenticado.' }
 
-  // Solo profes
   const { data: profe } = await supabase
     .from('profiles').select('role').eq('id', user.id).single() as { data: { role: string } | null }
   if (profe?.role !== 'profe') return { error: 'Sin permisos.' }
 
-  // Obtener email del alumno via admin
+  // Generar contraseña temporal
+  const adj = ['Fuerte', 'Rapido', 'Activo', 'Fitnes', 'Power']
+  const num = Math.floor(1000 + Math.random() * 9000)
+  const tempPassword = `${adj[Math.floor(Math.random() * adj.length)]}${num}`
+
+  // Setear nueva contraseña via admin
   const admin = createAdminClient()
-  const { data: alumnoData, error: userError } = await admin.auth.admin.getUserById(alumnoId)
-  if (userError || !alumnoData.user?.email) return { error: 'No se encontró el alumno.' }
-
-  // Usar cliente anónimo para resetPasswordForEmail (evita conflictos con el server client SSR)
-  const { createClient: createSupabaseJs } = await import('@supabase/supabase-js')
-  const anonClient = createSupabaseJs(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false } }
-  )
-
-  const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://planificador-virid.vercel.app'}/auth/callback?next=/auth/nueva-contrasena`
-  const { error } = await anonClient.auth.resetPasswordForEmail(alumnoData.user.email, { redirectTo })
+  const { error } = await admin.auth.admin.updateUserById(alumnoId, { password: tempPassword })
   if (error) {
-    console.error('resetPasswordForEmail error:', error.message)
-    return { error: 'No se pudo enviar el email. Intentá de nuevo.' }
+    console.error('resetearContrasena error:', error.message)
+    return { error: 'No se pudo resetear la contraseña.' }
   }
 
-  return {}
+  // Marcar password_changed = false → el alumno verá el aviso de cambiar contraseña
+  await (supabase.from('profiles') as any)
+    .update({ password_changed: false })
+    .eq('id', alumnoId)
+
+  return { password: tempPassword }
 }
 
 export async function eliminarAlumno(alumnoId: string): Promise<{ error?: string }> {
