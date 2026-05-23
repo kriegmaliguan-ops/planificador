@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
-import { Dumbbell, LogOut } from 'lucide-react'
+import { Dumbbell, LogOut, KeyRound } from 'lucide-react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { typed } from '@/lib/supabase/types-helper'
 import { NavBottom } from '@/components/alumno/NavBottom'
@@ -67,6 +68,24 @@ export default async function AlumnoLayout({
           </form>
         </div>
       </header>
+
+      {/* Banner clave temporal */}
+      {profile?.password_changed === false && (
+        <div className="flex items-center justify-between gap-3 bg-amber-50 border-b border-amber-200 px-4 py-2.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <KeyRound className="h-4 w-4 shrink-0 text-amber-600" />
+            <p className="text-xs text-amber-800 leading-snug">
+              Tu profe te generó una contraseña temporal. Cambiala para proteger tu cuenta.
+            </p>
+          </div>
+          <Link
+            href="/perfil"
+            className="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-400 transition-colors"
+          >
+            Cambiar ahora
+          </Link>
+        </div>
+      )}
 
       {/* Contenido principal */}
       <main className="flex-1 pb-20">

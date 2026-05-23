@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { UserPlus, Search, ChevronRight, User, PauseCircle } from 'lucide-react'
+import { UserPlus, Search, ChevronRight, User, PauseCircle, KeyRound } from 'lucide-react'
 import { NuevoAlumnoModal } from './NuevoAlumnoModal'
 import type { Profile } from '@/lib/types/database'
 
@@ -123,7 +123,7 @@ export function AlumnosCliente({ alumnos }: AlumnosClienteProps) {
                 {alumno.apellido?.[0].toUpperCase() ?? ''}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <p className="truncate font-semibold text-slate-900">
                     {alumno.nombre} {alumno.apellido ?? ''}
                   </p>
@@ -131,6 +131,12 @@ export function AlumnosCliente({ alumnos }: AlumnosClienteProps) {
                     <span className="shrink-0 flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
                       <PauseCircle className="h-3 w-3" />
                       Suspendido
+                    </span>
+                  )}
+                  {alumno.password_changed === false && (
+                    <span className="shrink-0 flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700">
+                      <KeyRound className="h-3 w-3" />
+                      Clave temporal
                     </span>
                   )}
                 </div>

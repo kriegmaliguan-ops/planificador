@@ -93,6 +93,12 @@ export default async function AlumnoPerfilPage({ params }: Props) {
                 Suspendido
               </span>
             )}
+            {profile.password_changed === false && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700">
+                <KeyRound className="h-3 w-3" />
+                Clave sin cambiar
+              </span>
+            )}
             {rutinaActiva && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
