@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, useState, useTransition } from 'react'
-import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck, CalendarDays, X } from 'lucide-react'
+import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck, CalendarDays, X, Trash2 } from 'lucide-react'
 import { DIAS_SEMANA, DIAS_LABELS, getWeekDates } from '@/lib/utils'
 import {
   crearRutina,
@@ -11,6 +11,7 @@ import {
   toggleDiaDescanso,
   copiarDia,
   copiarSemana,
+  eliminarSemana,
   reordenarEjercicios,
 } from '@/app/(profe)/rutinas/[alumnoId]/actions'
 import { EjercicioDiaRow } from './EjercicioDiaRow'
@@ -171,6 +172,7 @@ export function RutinaBuilder({
   const [fechaTemp, setFechaTemp] = useState(rutina?.fecha_inicio ?? '')
   const [copiarAbierto, setCopiarAbierto] = useState(false)
   const [copiarSemanaAbierto, setCopiarSemanaAbierto] = useState(false)
+  const [confirmarBorrarSemana, setConfirmarBorrarSemana] = useState<number | null>(null)
   const [, startTransition] = useTransition()
 
   if (!rutina) {
@@ -293,6 +295,23 @@ export function RutinaBuilder({
       dias: { ...r!.dias, [nueva]: initWeekDias() },
     }))
     setSemanaActiva(nueva)
+  }
+
+  // ── Eliminar semana
+  function handleEliminarSemana(sem: number) {
+    setConfirmarBorrarSemana(null)
+    const siguienteSem = rutina!.semanas.find((s) => s !== sem) ?? 1
+    startTransition(async () => {
+      await eliminarSemana(rutina!.id, sem, alumnoId)
+      setRutina((r) => {
+        if (!r) return r
+        const nuevasSemanas = r.semanas.filter((s) => s !== sem)
+        const nuevosDias = { ...r.dias }
+        delete nuevosDias[sem]
+        return { ...r, semanas: nuevasSemanas, dias: nuevosDias }
+      })
+      setSemanaActiva(siguienteSem)
+    })
   }
 
   // ── Copiar semana
@@ -486,6 +505,8 @@ export function RutinaBuilder({
           const mes = getMes(sem)
           const prevMes = idx > 0 ? getMes(rutina.semanas[idx - 1]) : null
           const showMes = mes !== prevMes
+          const isActive = semanaActiva === sem
+          const canDelete = rutina.semanas.length > 1
           return (
             <Fragment key={sem}>
               {showMes && (
@@ -493,23 +514,54 @@ export function RutinaBuilder({
                   Mes {mes}
                 </span>
               )}
-              <button
-                onClick={() => setSemanaActiva(sem)}
-                className={`shrink-0 flex flex-col items-center rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
-                  semanaActiva === sem
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 ring-1 ring-slate-200'
-                }`}
-              >
-                <span>Sem {sem}</span>
-                {rutina.fecha_inicio && (
-                  <span className={`text-[9px] font-normal leading-tight ${
-                    semanaActiva === sem ? 'text-blue-100' : 'text-slate-400'
-                  }`}>
-                    {getWeekDates(rutina.fecha_inicio, sem)}
-                  </span>
+              <div className="flex shrink-0 items-center gap-0.5">
+                <button
+                  onClick={() => { setSemanaActiva(sem); setConfirmarBorrarSemana(null) }}
+                  className={`flex flex-col items-center rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-white text-slate-600 hover:bg-slate-100 ring-1 ring-slate-200'
+                  }`}
+                >
+                  <span>Sem {sem}</span>
+                  {rutina.fecha_inicio && (
+                    <span className={`text-[9px] font-normal leading-tight ${
+                      isActive ? 'text-blue-100' : 'text-slate-400'
+                    }`}>
+                      {getWeekDates(rutina.fecha_inicio, sem)}
+                    </span>
+                  )}
+                </button>
+
+                {/* Borrar semana — solo en semana activa cuando hay más de una */}
+                {isActive && canDelete && (
+                  confirmarBorrarSemana === sem ? (
+                    <div className="flex items-center gap-0.5 rounded-lg border border-red-200 bg-red-50 px-1.5 py-1">
+                      <span className="text-[10px] font-medium text-red-600">¿Borrar?</span>
+                      <button
+                        onClick={() => handleEliminarSemana(sem)}
+                        className="rounded px-1 text-[10px] font-bold text-red-600 hover:text-red-700"
+                      >
+                        Sí
+                      </button>
+                      <button
+                        onClick={() => setConfirmarBorrarSemana(null)}
+                        className="rounded px-0.5 text-[10px] text-slate-400 hover:text-slate-600"
+                      >
+                        No
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmarBorrarSemana(sem)}
+                      className="rounded p-1 text-slate-300 hover:text-red-400 transition-colors"
+                      title={`Borrar Sem ${sem}`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )
                 )}
-              </button>
+              </div>
             </Fragment>
           )
         })}

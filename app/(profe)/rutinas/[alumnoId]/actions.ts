@@ -296,6 +296,36 @@ export async function copiarDia(
   return {}
 }
 
+// ── Eliminar semana completa ──────────────────────────────────────────────────
+
+export async function eliminarSemana(
+  rutinaId: string,
+  semanaNumero: number,
+  alumnoId: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+
+  // Obtener todos los días de la semana
+  const { data: dias } = await supabase
+    .from('rutina_dias')
+    .select('id')
+    .eq('rutina_id', rutinaId)
+    .eq('semana_numero', semanaNumero) as { data: { id: string }[] | null }
+
+  if (dias?.length) {
+    const diaIds = dias.map((d) => d.id)
+    // Eliminar ejercicios primero
+    await supabase.from('rutina_ejercicios').delete().in('dia_id', diaIds)
+    // Eliminar días
+    await supabase.from('rutina_dias').delete().in('id', diaIds)
+  }
+
+  revalidatePath(`/rutinas/${alumnoId}`)
+  return {}
+}
+
 // ── Copiar semana completa ────────────────────────────────────────────────────
 
 export async function copiarSemana(
