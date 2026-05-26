@@ -32,7 +32,7 @@ export function EjercicioCard({ ejercicio, onEdit }: EjercicioCardProps) {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-semibold text-slate-900 leading-snug">{ejercicio.nombre}</h3>
-        <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex shrink-0 items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           {ejercicio.video_url && (
             <a
               href={ejercicio.video_url}
