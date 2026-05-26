@@ -37,7 +37,7 @@ export default async function RutinasPage() {
   const inactivas = rutinas.filter((r) => !r.activa)
 
   return (
-    <div className="px-4 py-6 md:p-8 max-w-4xl">
+    <div className="mx-auto px-4 py-6 md:p-8 max-w-4xl">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Rutinas</h1>
         <p className="mt-0.5 text-sm text-slate-500">

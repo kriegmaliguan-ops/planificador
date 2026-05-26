@@ -52,7 +52,7 @@ export default function NuevoAlumnoPage() {
     const mensaje = `Hola! Te comparto tus datos de acceso a Planificador Pro:\n\n🌐 App: https://planificador-virid.vercel.app\n📧 Email: ${resultado.email}\n🔑 Contraseña: ${resultado.tempPassword}\n\nPodés cambiar la contraseña desde tu perfil.`
 
     return (
-      <div className="px-4 py-6 md:p-8 max-w-lg">
+      <div className="mx-auto px-4 py-6 md:p-8 max-w-lg">
         <div className="flex flex-col items-center gap-5 rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-100">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
             <CheckCircle2 className="h-8 w-8 text-emerald-600" />

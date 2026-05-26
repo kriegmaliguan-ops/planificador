@@ -439,7 +439,7 @@ export function RutinaBuilder({
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* Header de rutina */}
-      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 py-3">
         <div className="flex items-center gap-2">
           {editandoNombre ? (
             <NombreEditor

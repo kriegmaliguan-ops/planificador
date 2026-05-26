@@ -264,7 +264,7 @@ export default async function ProgresoAlumnoPage({ params }: Props) {
   const { estadisticas, historial, bienestar, pesos, rpeHoy, totalRegistros } = await getDatos(id, hoy)
 
   return (
-    <div className="px-4 py-6 md:p-8 max-w-4xl">
+    <div className="mx-auto px-4 py-6 md:p-8 max-w-4xl">
       <Link
         href={`/alumnos/${id}`}
         className="mb-6 inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 transition-colors"

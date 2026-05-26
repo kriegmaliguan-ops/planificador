@@ -55,7 +55,7 @@ export default async function DashboardPage() {
   const data = await getDashboardData()
 
   return (
-    <div className="px-4 py-6 md:p-8 max-w-5xl space-y-8">
+    <div className="mx-auto px-4 py-6 md:p-8 max-w-5xl space-y-8">
 
       {/* Header */}
       <div>

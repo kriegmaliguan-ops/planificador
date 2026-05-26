@@ -11,7 +11,7 @@ export default async function AlumnosPage() {
   )
 
   return (
-    <div className="px-4 py-6 md:p-8 max-w-6xl">
+    <div className="mx-auto px-4 py-6 md:p-8 max-w-6xl">
       <AlumnosCliente alumnos={alumnos ?? []} />
     </div>
   )

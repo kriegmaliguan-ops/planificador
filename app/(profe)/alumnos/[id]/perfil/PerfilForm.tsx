@@ -59,7 +59,7 @@ export function PerfilForm({ alumno }: PerfilFormProps) {
   }
 
   return (
-    <div className="px-4 py-6 md:p-8 max-w-2xl">
+    <div className="mx-auto px-4 py-6 md:p-8 max-w-2xl">
       <Link
         href={`/alumnos/${alumno.id}`}
         className="mb-6 inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 transition-colors"

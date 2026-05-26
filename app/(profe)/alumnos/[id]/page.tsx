@@ -52,7 +52,7 @@ export default async function AlumnoPerfilPage({ params }: Props) {
   const rutinaActiva = rutinas.find((r) => r.activa)
 
   return (
-    <div className="px-4 py-6 md:p-8 max-w-4xl">
+    <div className="mx-auto px-4 py-6 md:p-8 max-w-4xl">
       {/* Back */}
       <Link
         href="/alumnos"
@@ -63,56 +63,60 @@ export default async function AlumnoPerfilPage({ params }: Props) {
       </Link>
 
       {/* Header del alumno */}
-      <div className="mb-8 flex items-start gap-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-2xl font-bold text-blue-700">
-          {initials || '?'}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold text-slate-900">
-            {profile.nombre} {profile.apellido ?? ''}
-          </h1>
-          <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <Mail className="h-4 w-4" />
-              {profile.email}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CalendarDays className="h-4 w-4" />
-              Miembro desde{' '}
-              {new Date(profile.created_at).toLocaleDateString('es-AR', {
-                day: '2-digit',
-                month: 'long',
-                year: 'numeric',
-              })}
-            </span>
+      <div className="mb-8 rounded-2xl bg-white p-5 sm:p-6 shadow-sm ring-1 ring-slate-100">
+        <div className="flex items-start gap-4">
+          <div className="flex h-16 w-16 sm:h-20 sm:w-20 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-xl sm:text-2xl font-bold text-blue-700">
+            {initials || '?'}
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {profile.suspendido && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                Suspendido
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">
+              {profile.nombre} {profile.apellido ?? ''}
+            </h1>
+            <div className="mt-1.5 flex flex-col sm:flex-row sm:flex-wrap gap-1 sm:gap-4 text-sm text-slate-500">
+              <span className="flex items-center gap-1.5 text-xs sm:text-sm truncate">
+                <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                <span className="truncate">{profile.email}</span>
               </span>
-            )}
-            {profile.password_changed === false && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700">
-                <KeyRound className="h-3 w-3" />
-                Clave sin cambiar
+              <span className="flex items-center gap-1.5 text-xs sm:text-sm">
+                <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                Desde{' '}
+                {new Date(profile.created_at).toLocaleDateString('es-AR', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                })}
               </span>
-            )}
-            {rutinaActiva && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Rutina activa: {rutinaActiva.nombre}
-              </span>
-            )}
+            </div>
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {profile.suspendido && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  Suspendido
+                </span>
+              )}
+              {profile.password_changed === false && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1 text-xs font-medium text-orange-700">
+                  <KeyRound className="h-3 w-3" />
+                  Clave sin cambiar
+                </span>
+              )}
+              {rutinaActiva && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  <span className="truncate max-w-[140px]">Rutina: {rutinaActiva.nombre}</span>
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        <Link
-          href={`/rutinas/${id}`}
-          className="shrink-0 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 transition-colors"
-        >
-          {rutinaActiva ? 'Editar rutina' : 'Crear rutina'}
-        </Link>
+        <div className="mt-4 flex justify-end">
+          <Link
+            href={`/rutinas/${id}`}
+            className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 transition-colors"
+          >
+            {rutinaActiva ? 'Editar rutina' : 'Crear rutina'}
+          </Link>
+        </div>
       </div>
 
       {/* Navegación rápida */}

@@ -43,7 +43,7 @@ export function Sidebar({ profile, onClose }: SidebarProps) {
     .join('')
 
   return (
-    <aside className="flex h-screen w-60 shrink-0 flex-col bg-slate-900 text-slate-100">
+    <aside className="flex h-full w-60 shrink-0 flex-col bg-slate-900 text-slate-100">
 
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-800">

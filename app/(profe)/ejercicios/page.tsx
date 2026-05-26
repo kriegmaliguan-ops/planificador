@@ -40,7 +40,7 @@ export default async function EjerciciosPage() {
   const { ejercicios, grupos } = await getData()
 
   return (
-    <div className="p-8 max-w-6xl">
+    <div className="mx-auto p-4 md:p-8 max-w-6xl">
       <EjerciciosCliente ejercicios={ejercicios} grupos={grupos} />
     </div>
   )

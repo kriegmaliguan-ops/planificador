@@ -15,7 +15,7 @@ export function ProfeShell({ profile, children }: ProfeShellProps) {
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="flex h-screen bg-slate-100">
+    <div className="flex h-dvh bg-slate-100">
 
       {/* Overlay oscuro en mobile cuando sidebar está abierto */}
       {open && (

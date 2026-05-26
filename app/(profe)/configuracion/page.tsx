@@ -17,7 +17,7 @@ export default async function PerfilProfePage() {
   if (!profile) redirect('/login')
 
   return (
-    <div className="px-4 py-6 md:p-8 max-w-lg">
+    <div className="mx-auto px-4 py-6 md:p-8 max-w-lg">
       <h1 className="mb-6 text-2xl font-bold text-slate-900">Mi perfil</h1>
       <PerfilProfeForm profile={profile} />
     </div>

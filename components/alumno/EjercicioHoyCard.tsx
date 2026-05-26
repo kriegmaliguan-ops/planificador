@@ -274,7 +274,7 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
                   </button>
                 )}
               </div>
-              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(numSeries, 4)}, minmax(0, 1fr))` }}>
+              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(numSeries, 3)}, minmax(0, 1fr))` }}>
                 {repsSync.map((r, i) => (
                   <div key={i} className="flex flex-col items-center gap-1">
                     {numSeries > 1 && (
@@ -308,7 +308,7 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
                   </button>
                 )}
               </div>
-              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(numSeries, 4)}, minmax(0, 1fr))` }}>
+              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(numSeries, 3)}, minmax(0, 1fr))` }}>
                 {pesosSync.map((p, i) => (
                   <div key={i} className="flex flex-col items-center gap-1">
                     {numSeries > 1 && (
