@@ -23,14 +23,16 @@ export async function registrarProgreso(data: {
 
   const hoy = data.fecha ?? getHoyChile()
 
-  // Verificar si ya hay un registro hoy para este ejercicio
-  const { data: existente } = await supabase
+  // Verificar si ya hay un registro hoy para este ejercicio (limit 1 para sobrevivir duplicados existentes)
+  const { data: existentes } = await supabase
     .from('registros_progreso')
     .select('id')
     .eq('alumno_id', user.id)
     .eq('rutina_ejercicio_id', data.rutinaEjercicioId)
     .eq('fecha', hoy)
-    .maybeSingle() as { data: { id: string } | null }
+    .order('created_at', { ascending: false })
+    .limit(1) as { data: { id: string }[] | null }
+  const existente = existentes?.[0] ?? null
 
   const payload: Record<string, unknown> = {
     series_completadas: data.seriesCompletadas,
@@ -96,12 +98,14 @@ export async function registrarBienestar(data: {
 
   const hoy = data.fecha ?? getHoyChile()
 
-  const { data: existente } = await supabase
+  const { data: existentes_b } = await supabase
     .from('registros_bienestar')
     .select('id')
     .eq('alumno_id', user.id)
     .eq('fecha', hoy)
-    .maybeSingle() as { data: { id: string } | null }
+    .order('created_at', { ascending: false })
+    .limit(1) as { data: { id: string }[] | null }
+  const existente = existentes_b?.[0] ?? null
 
   if (existente) {
     const { error } = await (supabase.from('registros_bienestar') as any)
@@ -132,12 +136,14 @@ export async function registrarPeso(data: {
 
   const hoy = data.fecha ?? getHoyChile()
 
-  const { data: existente } = await supabase
+  const { data: existentes_p } = await supabase
     .from('registros_peso')
     .select('id')
     .eq('alumno_id', user.id)
     .eq('fecha', hoy)
-    .maybeSingle() as { data: { id: string } | null }
+    .order('created_at', { ascending: false })
+    .limit(1) as { data: { id: string }[] | null }
+  const existente = existentes_p?.[0] ?? null
 
   if (existente) {
     const { error } = await (supabase.from('registros_peso') as any)

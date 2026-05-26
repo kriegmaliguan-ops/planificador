@@ -134,7 +134,7 @@ async function getDatos(alumnoId: string, hoy: string) {
       .eq('alumno_id', alumnoId)
       .gte('fecha', desdeStr)
       .order('fecha', { ascending: false })
-      .order('created_at', { ascending: true }) as unknown as Promise<{ data: any[] | null }>,
+      .order('created_at', { ascending: false }) as unknown as Promise<{ data: any[] | null }>,
     supabase
       .from('registros_peso')
       .select('fecha, peso_kg, notas')
@@ -149,8 +149,24 @@ async function getDatos(alumnoId: string, hoy: string) {
       .maybeSingle() as unknown as Promise<{ data: any | null }>,
   ])
 
-  const bienestar = (bienestarResult.status === 'fulfilled' ? (bienestarResult.value.data ?? []) : []) as RegistroBienestar[]
-  const progresoRaw = (progresoResult.status === 'fulfilled' ? (progresoResult.value.data ?? []) : []) as any[]
+  // Deduplicar bienestar: un registro por día (el más reciente)
+  const bienestarRaw = (bienestarResult.status === 'fulfilled' ? (bienestarResult.value.data ?? []) : []) as RegistroBienestar[]
+  const bienestarSeen = new Set<string>()
+  const bienestar = bienestarRaw.filter((b) => {
+    if (bienestarSeen.has(b.fecha)) return false
+    bienestarSeen.add(b.fecha)
+    return true
+  })
+
+  // Deduplicar progreso: un registro por (fecha + ejercicio), el más reciente
+  const progresoAll = (progresoResult.status === 'fulfilled' ? (progresoResult.value.data ?? []) : []) as any[]
+  const progresoSeen = new Set<string>()
+  const progresoRaw = progresoAll.filter((r) => {
+    const key = `${r.fecha}__${r.rutina_ejercicio_id ?? r.id}`
+    if (progresoSeen.has(key)) return false
+    progresoSeen.add(key)
+    return true
+  })
   const pesos = (pesoResult.status === 'fulfilled' ? (pesoResult.value.data ?? []) : []) as RegistroPeso[]
   const rawRutina = (rutinaResult.status === 'fulfilled' ? rutinaResult.value.data : null) as any
   const rutinaFechaInicio: string | null = rawRutina?.fecha_inicio ?? null
