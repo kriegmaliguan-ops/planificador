@@ -81,16 +81,32 @@ export async function eliminarEjercicio(
     .from('profiles').select('role').eq('id', user.id).single() as { data: { role: string } | null }
   if (profile?.role !== 'profe') return { error: 'Sin permisos.' }
 
-  // Usar admin client para evitar bloqueos de RLS
   const { createAdminClient } = await import('@/lib/supabase/admin')
   const admin = createAdminClient()
 
-  // Borrar relaciones de grupo primero (si no hay CASCADE en el schema)
+  // 1. Obtener todos los rutina_ejercicio ids que usan este ejercicio
+  const { data: rutinaEjs } = await (admin.from('rutina_ejercicios') as any)
+    .select('id')
+    .eq('ejercicio_id', id) as { data: { id: string }[] | null }
+
+  const reIds = (rutinaEjs ?? []).map((r) => r.id)
+
+  // 2. Borrar registros de progreso vinculados
+  if (reIds.length > 0) {
+    await (admin.from('registros_progreso') as any)
+      .delete()
+      .in('rutina_ejercicio_id', reIds)
+  }
+
+  // 3. Borrar rutina_ejercicios
+  await (admin.from('rutina_ejercicios') as any).delete().eq('ejercicio_id', id)
+
+  // 4. Borrar relaciones de grupo muscular
   await (admin.from('ejercicio_grupos') as any).delete().eq('ejercicio_id', id)
 
-  // Borrar el ejercicio
+  // 5. Borrar el ejercicio
   const { error } = await admin.from('ejercicios').delete().eq('id', id)
-  if (error) return { error: 'No se puede eliminar: el ejercicio está siendo usado en una rutina activa.' }
+  if (error) return { error: 'Error al eliminar el ejercicio.' }
 
   revalidatePath('/ejercicios')
   return { success: true }
