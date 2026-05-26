@@ -96,8 +96,32 @@ async function getData(alumnoId: string) {
     const semanasSet = new Set<number>()
     const diasBySemana: Record<number, Record<DiaSemana, EstadoDia>> = {}
 
-    // Mapa id → datos del ejercicio de biblioteca (fuente de verdad para nombre y grupos)
-    const ejLibMap = new Map(ejerciciosLib.map((e) => [e.id, e]))
+    // Extraer todos los ejercicio_id únicos referenciados en la rutina
+    const ejercicioIdsEnRutina = [
+      ...new Set(
+        (rawRutina.dias ?? []).flatMap((d: any) =>
+          (d.ejercicios ?? []).map((e: any) => e.ejercicio_id).filter(Boolean)
+        )
+      ),
+    ] as string[]
+
+    // Query directo y específico: solo los ejercicios que usa esta rutina
+    let ejLibMap = new Map(ejerciciosLib.map((e) => [e.id, e]))
+    if (ejercicioIdsEnRutina.length > 0) {
+      const { data: ejDirecto } = await supabase
+        .from('ejercicios')
+        .select('id, nombre, video_url, grupos:ejercicio_grupos(grupo:grupos_musculares(id, nombre))')
+        .in('id', ejercicioIdsEnRutina)
+      for (const ej of ejDirecto ?? []) {
+        ejLibMap.set(ej.id, {
+          id: ej.id,
+          nombre: ej.nombre ?? '',
+          descripcion: null,
+          video_url: ej.video_url ?? null,
+          grupos: ((ej.grupos ?? []) as any[]).map((g: any) => g.grupo as GrupoMuscular).filter(Boolean),
+        })
+      }
+    }
 
     for (const dia of (rawRutina.dias ?? [])) {
       const sem: number = dia.semana_numero ?? 1
