@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { TrendingUp, Dumbbell, ChevronDown, ChevronUp, Moon, Zap, Scale } from 'lucide-react'
-import { grupoColor, DESCANSO_CONFIG, RPE_CONFIG } from '@/lib/utils'
+import { useState, useTransition } from 'react'
+import { TrendingUp, Dumbbell, ChevronDown, ChevronUp, Moon, Zap, Scale, Pencil, Trash2, Check, X } from 'lucide-react'
+import { grupoColor, DESCANSO_CONFIG, RPE_CONFIG, rpeButtonColor } from '@/lib/utils'
+import { eliminarRegistroProgreso, actualizarRegistroProgreso } from '@/app/(alumno)/rutina/actions'
 import { PesoCard } from '@/components/alumno/PesoCard'
 import type {
   DatosEstadisticas,
@@ -429,7 +430,19 @@ function PesoTab({
 
 // ── Historial Tab ─────────────────────────────────────────────────────────────
 
-function HistorialTab({ historial, totalRegistros }: { historial: SesionHistorial[]; totalRegistros: number }) {
+function HistorialTab({
+  historial,
+  totalRegistros,
+  editable,
+  onDelete,
+  onUpdate,
+}: {
+  historial: SesionHistorial[]
+  totalRegistros: number
+  editable?: boolean
+  onDelete?: (id: string) => void
+  onUpdate?: (id: string, updates: Partial<RegistroHistorial>) => void
+}) {
   const [expandida, setExpandida] = useState<string | null>(historial[0]?.fecha ?? null)
 
   if (totalRegistros === 0) {
@@ -476,7 +489,13 @@ function HistorialTab({ historial, totalRegistros }: { historial: SesionHistoria
           {expandida === sesion.fecha && (
             <div className="border-t border-slate-100 divide-y divide-slate-50">
               {sesion.registros.map((r) => (
-                <RegistroRow key={r.id} registro={r} />
+                <RegistroRow
+                  key={r.id}
+                  registro={r}
+                  editable={editable}
+                  onDelete={onDelete}
+                  onUpdate={onUpdate}
+                />
               ))}
             </div>
           )}
@@ -486,11 +505,157 @@ function HistorialTab({ historial, totalRegistros }: { historial: SesionHistoria
   )
 }
 
-function RegistroRow({ registro: r }: { registro: RegistroHistorial }) {
+function RegistroRow({
+  registro: r,
+  editable,
+  onDelete,
+  onUpdate,
+}: {
+  registro: RegistroHistorial
+  editable?: boolean
+  onDelete?: (id: string) => void
+  onUpdate?: (id: string, updates: Partial<RegistroHistorial>) => void
+}) {
+  const [editando, setEditando] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [, startTransition] = useTransition()
+  const [form, setForm] = useState({
+    series: String(r.series ?? 1),
+    reps: r.reps ?? '',
+    peso: r.peso != null ? String(r.peso) : '',
+    rpe: (r.rpe ?? '') as number | '',
+    notas: r.notas ?? '',
+  })
+
+  function handleGuardar() {
+    const pesoNum = form.peso !== '' ? Number(form.peso) : null
+    const updates: Partial<RegistroHistorial> = {
+      series: Number(form.series) || 1,
+      reps: form.reps,
+      peso: pesoNum,
+      rpe: form.rpe !== '' ? Number(form.rpe) : null,
+      notas: form.notas || null,
+    }
+    onUpdate?.(r.id, updates)
+    setEditando(false)
+    startTransition(async () => {
+      await actualizarRegistroProgreso(r.id, {
+        series_completadas: Number(form.series) || 1,
+        repeticiones_realizadas: form.reps,
+        peso_utilizado: pesoNum,
+        rpe: form.rpe !== '' ? Number(form.rpe) : null,
+        notas: form.notas || null,
+      })
+    })
+  }
+
+  function handleDelete() {
+    onDelete?.(r.id)
+    startTransition(async () => {
+      await eliminarRegistroProgreso(r.id)
+    })
+  }
+
+  // ── Vista de edición ──────────────────────────────────────────────────────
+  if (editando) {
+    return (
+      <div className="px-4 py-3 bg-slate-50 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-slate-700 truncate">{r.ejercicioNombre}</p>
+          <button onClick={() => setEditando(false)} className="rounded p-1 text-slate-400 hover:text-slate-600">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Series, Reps, Peso */}
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <label className="block text-[10px] font-medium text-slate-500 mb-1">Series</label>
+            <input
+              type="number" min={1}
+              value={form.series}
+              onChange={(e) => setForm((p) => ({ ...p, series: e.target.value }))}
+              className="w-full rounded-lg border border-slate-200 px-2 py-2 text-center text-sm font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-medium text-slate-500 mb-1">Reps</label>
+            <input
+              type="text"
+              value={form.reps}
+              onChange={(e) => setForm((p) => ({ ...p, reps: e.target.value }))}
+              className="w-full rounded-lg border border-slate-200 px-2 py-2 text-center text-sm font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-medium text-slate-500 mb-1">Peso (kg)</label>
+            <input
+              type="number" min={0} step={0.5}
+              value={form.peso}
+              onChange={(e) => setForm((p) => ({ ...p, peso: e.target.value }))}
+              className="w-full rounded-lg border border-slate-200 px-2 py-2 text-center text-sm font-bold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              placeholder="—"
+            />
+          </div>
+        </div>
+
+        {/* RPE */}
+        <div>
+          <label className="block text-[10px] font-medium text-slate-500 mb-1.5">
+            RPE <span className="text-slate-400">· opcional</span>
+            {form.rpe !== '' && (
+              <span className="ml-2 font-semibold text-slate-600">
+                {RPE_CONFIG[Number(form.rpe)]?.label}
+              </span>
+            )}
+          </label>
+          <div className="grid grid-cols-5 gap-1">
+            {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+              <button
+                key={n} type="button"
+                onClick={() => setForm((p) => ({ ...p, rpe: p.rpe === n ? '' : n }))}
+                className={`rounded-lg py-2 text-xs font-bold transition-colors ${rpeButtonColor(n, form.rpe === n)}`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Notas */}
+        <input
+          type="text"
+          value={form.notas}
+          onChange={(e) => setForm((p) => ({ ...p, notas: e.target.value }))}
+          placeholder="Notas opcionales..."
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+        />
+
+        {/* Acciones */}
+        <div className="flex gap-2">
+          <button
+            onClick={handleGuardar}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-500 transition-colors"
+          >
+            <Check className="h-4 w-4" />
+            Guardar
+          </button>
+          <button
+            onClick={() => setEditando(false)}
+            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Vista normal ──────────────────────────────────────────────────────────
   return (
     <div className="px-4 py-3">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="font-medium text-slate-900 truncate">{r.ejercicioNombre}</p>
           {r.grupos.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
@@ -502,12 +667,42 @@ function RegistroRow({ registro: r }: { registro: RegistroHistorial }) {
             </div>
           )}
         </div>
-        {r.rpe !== null && (
-          <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${rpeColor(r.rpe)}`}>
-            RPE {r.rpe}
-          </span>
-        )}
+
+        <div className="flex shrink-0 items-center gap-1">
+          {r.rpe !== null && (
+            <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${rpeColor(r.rpe)}`}>
+              RPE {r.rpe}
+            </span>
+          )}
+          {editable && (
+            <>
+              <button
+                onClick={() => { setEditando(true); setConfirmDelete(false) }}
+                className="rounded-lg p-1.5 text-slate-300 hover:text-blue-500 transition-colors"
+                title="Editar"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              {confirmDelete ? (
+                <div className="flex items-center gap-0.5 rounded-lg border border-red-200 bg-red-50 px-1.5 py-1">
+                  <span className="text-[10px] font-medium text-red-600">¿Borrar?</span>
+                  <button onClick={handleDelete} className="rounded px-1 text-[10px] font-bold text-red-600 hover:text-red-700">Sí</button>
+                  <button onClick={() => setConfirmDelete(false)} className="rounded px-0.5 text-[10px] text-slate-400 hover:text-slate-600">No</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="rounded-lg p-1.5 text-slate-300 hover:text-red-400 transition-colors"
+                  title="Borrar"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
+
       <p className="mt-1.5 text-sm font-semibold text-slate-800">
         {r.series ?? '?'} × {r.reps ?? '?'}
         {r.peso !== null ? ` @ ${r.peso} kg` : ''}
@@ -528,10 +723,30 @@ interface Props {
   pesoHoy?: { peso_kg: number; notas: string | null } | null
   rpeHoy?: RpeEjercicio[]
   totalRegistros: number
+  /** true = alumno (puede editar/borrar registros), false/undefined = profe (solo lectura) */
+  editable?: boolean
 }
 
-export function ProgresoCliente({ estadisticas, historial, bienestar = [], pesos = [], pesoHoy, rpeHoy = [], totalRegistros }: Props) {
+export function ProgresoCliente({ estadisticas, historial, bienestar = [], pesos = [], pesoHoy, rpeHoy = [], totalRegistros, editable }: Props) {
   const [tab, setTab] = useState<'estadisticas' | 'sueno' | 'peso' | 'historial'>('estadisticas')
+  const [localHistorial, setLocalHistorial] = useState<SesionHistorial[]>(historial)
+
+  function handleDeleteRegistro(id: string) {
+    setLocalHistorial((prev) =>
+      prev
+        .map((s) => ({ ...s, registros: s.registros.filter((r) => r.id !== id) }))
+        .filter((s) => s.registros.length > 0)
+    )
+  }
+
+  function handleUpdateRegistro(id: string, updates: Partial<RegistroHistorial>) {
+    setLocalHistorial((prev) =>
+      prev.map((s) => ({
+        ...s,
+        registros: s.registros.map((r) => r.id === id ? { ...r, ...updates } : r),
+      }))
+    )
+  }
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6 space-y-4">
@@ -575,7 +790,15 @@ export function ProgresoCliente({ estadisticas, historial, bienestar = [], pesos
       {tab === 'estadisticas' && <EstadisticasTab estadisticas={estadisticas} rpeHoy={rpeHoy} />}
       {tab === 'sueno' && <SuenoTab bienestar={bienestar} />}
       {tab === 'peso' && <PesoTab pesos={pesos} pesoHoy={pesoHoy} />}
-      {tab === 'historial' && <HistorialTab historial={historial} totalRegistros={totalRegistros} />}
+      {tab === 'historial' && (
+        <HistorialTab
+          historial={localHistorial}
+          totalRegistros={localHistorial.reduce((acc, s) => acc + s.registros.length, 0)}
+          editable={editable}
+          onDelete={handleDeleteRegistro}
+          onUpdate={handleUpdateRegistro}
+        />
+      )}
     </div>
   )
 }

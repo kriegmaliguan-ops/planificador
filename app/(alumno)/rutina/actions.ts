@@ -153,3 +153,45 @@ export async function registrarPeso(data: {
   revalidatePath('/progreso')
   return { success: true }
 }
+
+// ── Eliminar registro de historial por ID ────────────────────────────────────
+
+export async function eliminarRegistroProgreso(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+  const { error } = await supabase
+    .from('registros_progreso')
+    .delete()
+    .eq('id', id)
+    .eq('alumno_id', user.id)
+  if (error) return { error: 'Error al eliminar.' }
+  revalidatePath('/rutina', 'page')
+  revalidatePath('/progreso')
+  return {}
+}
+
+// ── Actualizar registro de historial por ID ──────────────────────────────────
+
+export async function actualizarRegistroProgreso(
+  id: string,
+  data: {
+    series_completadas: number
+    repeticiones_realizadas: string
+    peso_utilizado: number | null
+    rpe: number | null
+    notas: string | null
+  }
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+  const { error } = await (supabase.from('registros_progreso') as any)
+    .update(data)
+    .eq('id', id)
+    .eq('alumno_id', user.id)
+  if (error) return { error: 'Error al actualizar.' }
+  revalidatePath('/rutina', 'page')
+  revalidatePath('/progreso')
+  return {}
+}

@@ -276,6 +276,7 @@ export default async function ProgresoPage() {
       pesoHoy={pesoHoy}
       rpeHoy={rpeHoy}
       totalRegistros={totalRegistros}
+      editable
     />
   )
 }
