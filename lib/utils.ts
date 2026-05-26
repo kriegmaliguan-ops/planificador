@@ -89,6 +89,24 @@ export function rpeButtonColor(n: number, selected: boolean): string {
   return 'bg-red-600 text-white'
 }
 
+/**
+ * Dado el fecha_inicio de una rutina y un número de semana (1-based),
+ * devuelve el rango de fechas de esa semana en formato corto.
+ * Ejemplos: "18–24 may" | "29 may – 4 jun"
+ */
+export function getWeekDates(fechaInicio: string, semana: number): string {
+  const [y, m, d] = fechaInicio.split('-').map(Number)
+  const start = new Date(y, m - 1, d + (semana - 1) * 7)
+  const end   = new Date(y, m - 1, d + (semana - 1) * 7 + 6)
+  const d1 = start.getDate()
+  const d2 = end.getDate()
+  const mes1 = start.toLocaleDateString('es-AR', { month: 'short' }).replace('.', '')
+  const mes2 = end.toLocaleDateString('es-AR', { month: 'short' }).replace('.', '')
+  return mes1 === mes2
+    ? `${d1}–${d2} ${mes1}`
+    : `${d1} ${mes1} – ${d2} ${mes2}`
+}
+
 // ── Descanso / Sueño (1-7) ────────────────────────────────────────────────────
 
 export const DESCANSO_CONFIG: Record<number, { label: string; color: string }> = {

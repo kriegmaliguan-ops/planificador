@@ -2,7 +2,7 @@
 
 import { Fragment, useState, useTransition } from 'react'
 import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck, CalendarDays } from 'lucide-react'
-import { DIAS_SEMANA, DIAS_LABELS } from '@/lib/utils'
+import { DIAS_SEMANA, DIAS_LABELS, getWeekDates } from '@/lib/utils'
 import {
   crearRutina,
   actualizarNombreRutina,
@@ -415,13 +415,20 @@ export function RutinaBuilder({
               )}
               <button
                 onClick={() => setSemanaActiva(sem)}
-                className={`shrink-0 rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
+                className={`shrink-0 flex flex-col items-center rounded-lg px-3 py-1 text-xs font-semibold transition-colors ${
                   semanaActiva === sem
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'bg-white text-slate-600 hover:bg-slate-100 ring-1 ring-slate-200'
                 }`}
               >
-                Sem {sem}
+                <span>Sem {sem}</span>
+                {rutina.fecha_inicio && (
+                  <span className={`text-[9px] font-normal leading-tight ${
+                    semanaActiva === sem ? 'text-blue-100' : 'text-slate-400'
+                  }`}>
+                    {getWeekDates(rutina.fecha_inicio, sem)}
+                  </span>
+                )}
               </button>
             </Fragment>
           )

@@ -41,7 +41,7 @@ export default async function MiRutinaPage() {
     supabase
       .from('rutinas')
       .select(`
-        id, nombre,
+        id, nombre, fecha_inicio,
         dias:rutina_dias(
           id, dia_semana, nombre, orden, es_descanso, semana_numero,
           ejercicios:rutina_ejercicios(
@@ -119,6 +119,7 @@ export default async function MiRutinaPage() {
       bienestarPorFecha={bienestarPorFecha}
       hoy={hoy}
       semanaDetectada={semanaDetectada}
+      fechaInicio={(rutina.fecha_inicio as string | null) ?? null}
     />
   )
 }

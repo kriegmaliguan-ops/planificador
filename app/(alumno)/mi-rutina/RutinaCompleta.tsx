@@ -4,6 +4,7 @@ import { useState, Fragment } from 'react'
 import Link from 'next/link'
 import { PlayCircle, Moon, Dumbbell, Clock, ChevronDown, ClipboardList, CheckCircle2 } from 'lucide-react'
 import { BienestarCard } from '@/components/alumno/BienestarCard'
+import { getWeekDates } from '@/lib/utils'
 
 type DiaSemana = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo'
 
@@ -34,6 +35,8 @@ interface Props {
   hoy: string
   /** Semana de la rutina que corresponde a la semana calendario actual (detectada por último entreno) */
   semanaDetectada: number
+  /** Fecha de inicio de la rutina (Semana 1), para calcular rangos de fechas */
+  fechaInicio: string | null
 }
 
 /**
@@ -52,7 +55,7 @@ function getFechaParaDia(dia: DiaSemana, referencia: string): string {
   return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`
 }
 
-export function RutinaCompleta({ rutina, completadosHoy, bienestarPorFecha, hoy, semanaDetectada }: Props) {
+export function RutinaCompleta({ rutina, completadosHoy, bienestarPorFecha, hoy, semanaDetectada, fechaInicio }: Props) {
   const completadosSet = new Set(completadosHoy)
 
   // ── Procesar datos ────────────────────────────────────────────────────────
@@ -139,13 +142,20 @@ export function RutinaCompleta({ rutina, completadosHoy, bienestarPorFecha, hoy,
                 )}
                 <button
                   onClick={() => handleSemana(sem)}
-                  className={`shrink-0 rounded-2xl px-4 py-2 text-sm font-semibold transition-all ${
+                  className={`shrink-0 flex flex-col items-center rounded-2xl px-4 py-2 text-sm font-semibold transition-all ${
                     semanaActiva === sem
                       ? 'bg-slate-900 text-white shadow-md'
                       : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-slate-300 active:scale-95'
                   }`}
                 >
-                  Sem {sem}
+                  <span>Sem {sem}</span>
+                  {fechaInicio && (
+                    <span className={`text-[10px] font-normal leading-tight mt-0.5 ${
+                      semanaActiva === sem ? 'text-slate-300' : 'text-slate-400'
+                    }`}>
+                      {getWeekDates(fechaInicio, sem)}
+                    </span>
+                  )}
                 </button>
               </Fragment>
             )
