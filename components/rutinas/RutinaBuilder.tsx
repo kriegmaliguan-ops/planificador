@@ -1,11 +1,12 @@
 'use client'
 
 import { Fragment, useState, useTransition } from 'react'
-import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck, CalendarDays } from 'lucide-react'
+import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck, CalendarDays, X } from 'lucide-react'
 import { DIAS_SEMANA, DIAS_LABELS, getWeekDates } from '@/lib/utils'
 import {
   crearRutina,
   actualizarNombreRutina,
+  actualizarFechaInicio,
   actualizarNombreDia,
   toggleDiaDescanso,
   copiarDia,
@@ -165,6 +166,8 @@ export function RutinaBuilder({
   const [agregarOpen, setAgregarOpen] = useState(false)
   const [editandoNombre, setEditandoNombre] = useState(false)
   const [editandoDia, setEditandoDia] = useState(false)
+  const [editandoFecha, setEditandoFecha] = useState(false)
+  const [fechaTemp, setFechaTemp] = useState(rutina?.fecha_inicio ?? '')
   const [copiarAbierto, setCopiarAbierto] = useState(false)
   const [copiarSemanaAbierto, setCopiarSemanaAbierto] = useState(false)
   const [, startTransition] = useTransition()
@@ -180,6 +183,17 @@ export function RutinaBuilder({
   }
 
   const diaData = rutina.dias[semanaActiva]?.[diaActivo] ?? { id: null, nombre: '', esDescanso: false, ejercicios: [] }
+
+  // ── Actualizar fecha de inicio
+  function handleGuardarFecha() {
+    setEditandoFecha(false)
+    const valor = fechaTemp.trim() || null
+    if (valor === (rutina!.fecha_inicio ?? '')) return
+    startTransition(async () => {
+      await actualizarFechaInicio(rutina!.id, valor, alumnoId)
+      setRutina((r) => r ? { ...r, fecha_inicio: valor } : r)
+    })
+  }
 
   // ── Actualizar nombre de rutina
   function handleGuardarNombreRutina(nuevo: string) {
@@ -397,6 +411,41 @@ export function RutinaBuilder({
           <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
             Activa
           </span>
+        </div>
+
+        {/* Fecha de inicio editable */}
+        <div className="flex items-center gap-1.5">
+          {editandoFecha ? (
+            <>
+              <input
+                type="date"
+                autoFocus
+                value={fechaTemp}
+                onChange={(e) => setFechaTemp(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleGuardarFecha(); if (e.key === 'Escape') setEditandoFecha(false) }}
+                className="rounded-lg border border-blue-300 px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+              <button onClick={handleGuardarFecha} className="rounded p-1 text-emerald-600 hover:text-emerald-700">
+                <Check className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={() => setEditandoFecha(false)} className="rounded p-1 text-slate-400 hover:text-slate-600">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => { setFechaTemp(rutina.fecha_inicio ?? ''); setEditandoFecha(true) }}
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 transition-colors"
+              title="Editar fecha de inicio"
+            >
+              <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
+              {rutina.fecha_inicio
+                ? new Date(rutina.fecha_inicio + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
+                : <span className="text-slate-400">Sin fecha de inicio</span>
+              }
+              <Pencil className="h-3 w-3 text-slate-400" />
+            </button>
+          )}
         </div>
       </div>
 

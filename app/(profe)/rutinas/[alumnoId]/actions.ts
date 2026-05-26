@@ -44,6 +44,23 @@ export async function crearRutina(
   return { id: data.id }
 }
 
+// ── Actualizar fecha de inicio de rutina ─────────────────────────────────────
+
+export async function actualizarFechaInicio(
+  rutinaId: string,
+  fechaInicio: string | null,
+  alumnoId: string
+): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  await (supabase.from('rutinas') as any)
+    .update({ fecha_inicio: fechaInicio })
+    .eq('id', rutinaId)
+    .eq('created_by', user.id)
+  revalidatePath(`/rutinas/${alumnoId}`)
+}
+
 // ── Actualizar nombre de rutina ───────────────────────────────────────────────
 
 export async function actualizarNombreRutina(
