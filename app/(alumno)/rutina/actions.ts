@@ -195,3 +195,15 @@ export async function actualizarRegistroProgreso(
   revalidatePath('/progreso')
   return {}
 }
+
+// ── Eliminar registro de bienestar por ID ────────────────────────────────────
+
+export async function eliminarRegistroBienestar(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+  await supabase.from('registros_bienestar').delete().eq('id', id).eq('alumno_id', user.id)
+  revalidatePath('/rutina', 'page')
+  revalidatePath('/progreso')
+  return {}
+}

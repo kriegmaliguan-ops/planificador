@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { typed } from '@/lib/supabase/types-helper'
-import { getHoyChile } from '@/lib/utils'
+import { getHoyChile, getSemanaActualPorFecha } from '@/lib/utils'
 import { ProgresoCliente } from '@/components/alumno/ProgresoCliente'
+import { eliminarRegistroProgreso, actualizarRegistroProgreso, eliminarRegistroBienestar } from '@/app/(alumno)/rutina/actions'
 import type { Profile, GrupoMuscular } from '@/lib/types/database'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -40,6 +41,7 @@ export interface SesionHistorial {
 }
 
 export interface RegistroBienestar {
+  id: string
   fecha: string
   descanso: number
   notas: string | null
@@ -109,26 +111,53 @@ function buildSemanal(
   })
 }
 
-/** Mensual: 4 semanas del mes actual (S1=días 1-7, S2=8-14, S3=15-21, S4=22-fin) */
+/** Mensual: 4 semanas basadas en la semana de rutina actual (Sem 1, 2, 3, 4...) */
 function buildMensual(
   hoy: string,
   bienestar: { fecha: string; descanso: number }[],
-  rpe: { fecha: string; rpe: number }[]
+  rpe: { fecha: string; rpe: number }[],
+  rutinaFechaInicio?: string | null,
+  rutinaMaxSemana?: number
 ): PuntoTemporal[] {
-  const [y, m] = hoy.split('-').map(Number)
-  const lastDay = new Date(y, m, 0).getDate()
+  if (rutinaFechaInicio) {
+    const maxSem = rutinaMaxSemana ?? 999
+    const currentSem = getSemanaActualPorFecha(rutinaFechaInicio, hoy, maxSem)
+    // Mostrar 4 semanas: desde max(1, currentSem-3) hasta currentSem
+    // Si currentSem < 4, completar con semanas futuras para tener siempre 4 barras
+    const startSem = Math.max(1, currentSem - 3)
+    const semanas = Array.from({ length: 4 }, (_, i) => startSem + i)
+
+    return semanas.map((sem) => {
+      const [fy, fm, fd] = rutinaFechaInicio.split('-').map(Number)
+      const dates: string[] = []
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(fy, fm - 1, fd + (sem - 1) * 7 + i)
+        dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+      }
+      const rpeW = rpe.filter((x) => dates.includes(x.fecha)).map((x) => x.rpe)
+      const bW = bienestar.filter((x) => dates.includes(x.fecha)).map((x) => x.descanso)
+      return {
+        label: `Sem ${sem}`,
+        fecha: dates[0],
+        rpe: avgOrNull(rpeW),
+        descanso: avgOrNull(bW),
+        sesiones: new Set(rpe.filter((x) => dates.includes(x.fecha)).map((x) => x.fecha)).size,
+        esHoy: dates.includes(hoy),
+      }
+    })
+  }
+
+  // Fallback: últimas 4 semanas calendario
+  const lunes = getLunes(hoy)
   return Array.from({ length: 4 }, (_, i) => {
-    const startDay = i * 7 + 1
-    const endDay = i === 3 ? lastDay : Math.min((i + 1) * 7, lastDay)
-    const dates: string[] = []
-    for (let d = startDay; d <= endDay; d++) {
-      dates.push(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`)
-    }
+    const weekStart = addDays(lunes, -7 * (3 - i))
+    const dates = Array.from({ length: 7 }, (_, j) => addDays(weekStart, j))
     const rpeW = rpe.filter((x) => dates.includes(x.fecha)).map((x) => x.rpe)
     const bW = bienestar.filter((x) => dates.includes(x.fecha)).map((x) => x.descanso)
+    const [, wm, wd] = weekStart.split('-').map(Number)
     return {
-      label: `S${i + 1}`,
-      fecha: dates[0],
+      label: `${wd}/${wm}`,
+      fecha: weekStart,
       rpe: avgOrNull(rpeW),
       descanso: avgOrNull(bW),
       sesiones: new Set(rpe.filter((x) => dates.includes(x.fecha)).map((x) => x.fecha)).size,
@@ -144,10 +173,10 @@ async function getDatos(alumnoId: string, hoy: string) {
   const desdeStr = addDays(hoy, -180)
 
   // Step 1: fetch all data in parallel (sin FK joins en progreso para evitar alias issue)
-  const [bienestarResult, progresoResult, pesoResult] = await Promise.allSettled([
+  const [bienestarResult, progresoResult, pesoResult, rutinaResult] = await Promise.allSettled([
     supabase
       .from('registros_bienestar')
-      .select('fecha, descanso, notas')
+      .select('id, fecha, descanso, notas')
       .eq('alumno_id', alumnoId)
       .gte('fecha', desdeStr)
       .order('fecha', { ascending: false }) as unknown as Promise<{ data: any[] | null }>,
@@ -164,11 +193,22 @@ async function getDatos(alumnoId: string, hoy: string) {
       .eq('alumno_id', alumnoId)
       .gte('fecha', desdeStr)
       .order('fecha', { ascending: false }) as unknown as Promise<{ data: any[] | null }>,
+    supabase
+      .from('rutinas')
+      .select('fecha_inicio, dias:rutina_dias(semana_numero)')
+      .eq('alumno_id', alumnoId)
+      .eq('activa', true)
+      .maybeSingle() as unknown as Promise<{ data: any | null }>,
   ])
 
   const bienestar = (bienestarResult.status === 'fulfilled' ? (bienestarResult.value.data ?? []) : []) as RegistroBienestar[]
   const progresoRaw = (progresoResult.status === 'fulfilled' ? (progresoResult.value.data ?? []) : []) as any[]
   const pesos = (pesoResult.status === 'fulfilled' ? (pesoResult.value.data ?? []) : []) as RegistroPeso[]
+  const rawRutina = (rutinaResult.status === 'fulfilled' ? rutinaResult.value.data : null) as any
+  const rutinaFechaInicio: string | null = rawRutina?.fecha_inicio ?? null
+  const rutinaMaxSemana = rawRutina
+    ? Math.max(...(rawRutina.dias ?? []).map((d: any) => d.semana_numero ?? 1).filter(Boolean), 1)
+    : 1
 
   // Step 2: resolver nombres de ejercicios con queries directas (2 pasos)
   const reIds = [...new Set(progresoRaw.map((r) => r.rutina_ejercicio_id).filter(Boolean))] as string[]
@@ -218,7 +258,7 @@ async function getDatos(alumnoId: string, hoy: string) {
   const estadisticas: DatosEstadisticas = {
     diario: buildDiario(hoy, bienestar, rpeRecords),
     semanal: buildSemanal(hoy, bienestar, rpeRecords),
-    mensual: buildMensual(hoy, bienestar, rpeRecords),
+    mensual: buildMensual(hoy, bienestar, rpeRecords, rutinaFechaInicio, rutinaMaxSemana),
   }
 
   // Historial (agrupado por fecha)
@@ -276,7 +316,9 @@ export default async function ProgresoPage() {
       pesoHoy={pesoHoy}
       rpeHoy={rpeHoy}
       totalRegistros={totalRegistros}
-      editable
+      onDeleteRegistro={eliminarRegistroProgreso}
+      onUpdateRegistro={actualizarRegistroProgreso}
+      onDeleteBienestar={eliminarRegistroBienestar}
     />
   )
 }
