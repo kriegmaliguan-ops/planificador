@@ -73,8 +73,25 @@ export async function eliminarEjercicio(
   id: string
 ): Promise<{ error?: string; success?: boolean }> {
   const supabase = await createClient()
-  const { error } = await supabase.from('ejercicios').delete().eq('id', id)
-  if (error) return { error: 'No se puede eliminar: el ejercicio está en uso en alguna rutina.' }
+
+  // Verificar que sea profe
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single() as { data: { role: string } | null }
+  if (profile?.role !== 'profe') return { error: 'Sin permisos.' }
+
+  // Usar admin client para evitar bloqueos de RLS
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const admin = createAdminClient()
+
+  // Borrar relaciones de grupo primero (si no hay CASCADE en el schema)
+  await (admin.from('ejercicio_grupos') as any).delete().eq('ejercicio_id', id)
+
+  // Borrar el ejercicio
+  const { error } = await admin.from('ejercicios').delete().eq('id', id)
+  if (error) return { error: 'No se puede eliminar: el ejercicio está siendo usado en una rutina activa.' }
+
   revalidatePath('/ejercicios')
   return { success: true }
 }

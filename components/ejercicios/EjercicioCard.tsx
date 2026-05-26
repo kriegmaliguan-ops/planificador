@@ -14,15 +14,21 @@ interface EjercicioCardProps {
 export function EjercicioCard({ ejercicio, onEdit }: EjercicioCardProps) {
   const [isPending, startTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   function handleDelete() {
     if (!confirmDelete) {
       setConfirmDelete(true)
-      setTimeout(() => setConfirmDelete(false), 3000) // reset si no confirma
+      setDeleteError(null)
+      setTimeout(() => setConfirmDelete(false), 4000)
       return
     }
     startTransition(async () => {
-      await eliminarEjercicio(ejercicio.id)
+      const result = await eliminarEjercicio(ejercicio.id)
+      if (result.error) {
+        setDeleteError(result.error)
+        setConfirmDelete(false)
+      }
     })
   }
 
@@ -89,9 +95,14 @@ export function EjercicioCard({ ejercicio, onEdit }: EjercicioCardProps) {
         </div>
       )}
 
-      {confirmDelete && (
+      {confirmDelete && !deleteError && (
         <p className="mt-3 text-xs text-red-500 font-medium animate-pulse">
           ¿Confirmar eliminación? Clic de nuevo para borrar.
+        </p>
+      )}
+      {deleteError && (
+        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
+          {deleteError}
         </p>
       )}
     </div>
