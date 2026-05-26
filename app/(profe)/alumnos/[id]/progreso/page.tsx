@@ -11,6 +11,7 @@ import type {
   RegistroHistorial,
   PuntoTemporal,
   RegistroPeso,
+  RpeEjercicio,
 } from '@/app/(alumno)/progreso/page'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -68,16 +69,20 @@ function buildMensual(
   bienestar: { fecha: string; descanso: number }[],
   rpe: { fecha: string; rpe: number }[]
 ): PuntoTemporal[] {
-  const lunes = getLunes(hoy)
-  return Array.from({ length: 8 }, (_, i) => {
-    const weekStart = addDays(lunes, -7 * (7 - i))
-    const dates = Array.from({ length: 7 }, (_, j) => addDays(weekStart, j))
+  const [y, m] = hoy.split('-').map(Number)
+  const lastDay = new Date(y, m, 0).getDate()
+  return Array.from({ length: 4 }, (_, i) => {
+    const startDay = i * 7 + 1
+    const endDay = i === 3 ? lastDay : Math.min((i + 1) * 7, lastDay)
+    const dates: string[] = []
+    for (let d = startDay; d <= endDay; d++) {
+      dates.push(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`)
+    }
     const rpeW = rpe.filter((x) => dates.includes(x.fecha)).map((x) => x.rpe)
     const bW = bienestar.filter((x) => dates.includes(x.fecha)).map((x) => x.descanso)
-    const [, wm, wd] = weekStart.split('-').map(Number)
     return {
-      label: `${wd}/${wm}`,
-      fecha: weekStart,
+      label: `S${i + 1}`,
+      fecha: dates[0],
       rpe: avgOrNull(rpeW),
       descanso: avgOrNull(bW),
       sesiones: new Set(rpe.filter((x) => dates.includes(x.fecha)).map((x) => x.fecha)).size,
@@ -90,21 +95,17 @@ async function getDatos(alumnoId: string, hoy: string) {
   const supabase = await createClient()
   const desdeStr = addDays(hoy, -180)
 
+  // Step 1: fetch all data in parallel (sin FK joins en progreso)
   const [bienestarResult, progresoResult, pesoResult] = await Promise.allSettled([
     supabase
       .from('registros_bienestar')
       .select('fecha, descanso, notas')
       .eq('alumno_id', alumnoId)
       .gte('fecha', desdeStr)
-      .order('fecha', { ascending: true }) as unknown as Promise<{ data: any[] | null }>,
+      .order('fecha', { ascending: false }) as unknown as Promise<{ data: any[] | null }>,
     supabase
       .from('registros_progreso')
-      .select(`
-        id, fecha, rpe, series_completadas, repeticiones_realizadas, peso_utilizado, notas,
-        rutina_ejercicio:rutina_ejercicios(
-          ejercicio:ejercicios(id, nombre, grupos:ejercicio_grupos(grupo:grupos_musculares(id, nombre)))
-        )
-      `)
+      .select('id, fecha, rpe, series_completadas, repeticiones_realizadas, peso_utilizado, notas, rutina_ejercicio_id')
       .eq('alumno_id', alumnoId)
       .gte('fecha', desdeStr)
       .order('fecha', { ascending: false })
@@ -118,9 +119,48 @@ async function getDatos(alumnoId: string, hoy: string) {
   ])
 
   const bienestar = (bienestarResult.status === 'fulfilled' ? (bienestarResult.value.data ?? []) : []) as { fecha: string; descanso: number; notas: string | null }[]
-  const progreso = (progresoResult.status === 'fulfilled' ? (progresoResult.value.data ?? []) : []) as any[]
+  const progresoRaw = (progresoResult.status === 'fulfilled' ? (progresoResult.value.data ?? []) : []) as any[]
   const pesos = (pesoResult.status === 'fulfilled' ? (pesoResult.value.data ?? []) : []) as RegistroPeso[]
-  const rpeRecords = progreso.filter((r) => r.rpe !== null).map((r) => ({ fecha: r.fecha, rpe: r.rpe as number }))
+
+  // Step 2: resolver nombres de ejercicios con queries directas (2 pasos)
+  const reIds = [...new Set(progresoRaw.map((r) => r.rutina_ejercicio_id).filter(Boolean))] as string[]
+  const ejIdByReId = new Map<string, string>()
+  const ejDataMap = new Map<string, { nombre: string; grupos: GrupoMuscular[] }>()
+
+  if (reIds.length > 0) {
+    const { data: rutinaEjs } = await supabase
+      .from('rutina_ejercicios')
+      .select('id, ejercicio_id')
+      .in('id', reIds)
+    for (const re of rutinaEjs ?? []) ejIdByReId.set(re.id, re.ejercicio_id)
+
+    const ejIds = [...new Set([...ejIdByReId.values()])] as string[]
+    if (ejIds.length > 0) {
+      const { data: ejs } = await supabase
+        .from('ejercicios')
+        .select('id, nombre, grupos:ejercicio_grupos(grupo:grupos_musculares(id, nombre))')
+        .in('id', ejIds)
+      for (const ej of ejs ?? []) {
+        ejDataMap.set(ej.id, {
+          nombre: (ej as any).nombre ?? 'Ejercicio',
+          grupos: (((ej as any).grupos ?? []) as any[]).map((g: any) => g.grupo as GrupoMuscular).filter(Boolean),
+        })
+      }
+    }
+  }
+
+  function getEjData(reId: string): { nombre: string; grupos: GrupoMuscular[] } {
+    const ejId = ejIdByReId.get(reId)
+    if (!ejId) return { nombre: 'Ejercicio', grupos: [] }
+    return ejDataMap.get(ejId) ?? { nombre: 'Ejercicio', grupos: [] }
+  }
+
+  const rpeRecords = progresoRaw.filter((r) => r.rpe !== null).map((r) => ({ fecha: r.fecha, rpe: r.rpe as number }))
+
+  // rpeHoy: RPE por ejercicio del día actual
+  const rpeHoy: RpeEjercicio[] = progresoRaw
+    .filter((r) => r.fecha === hoy && r.rpe !== null)
+    .map((r) => ({ nombre: getEjData(r.rutina_ejercicio_id).nombre, rpe: r.rpe as number }))
 
   const estadisticas: DatosEstadisticas = {
     diario: buildDiario(hoy, bienestar, rpeRecords),
@@ -129,13 +169,14 @@ async function getDatos(alumnoId: string, hoy: string) {
   }
 
   const sesionesMap = new Map<string, RegistroHistorial[]>()
-  for (const r of progreso) {
+  for (const r of progresoRaw) {
     if (!sesionesMap.has(r.fecha)) sesionesMap.set(r.fecha, [])
+    const ejData = getEjData(r.rutina_ejercicio_id)
     sesionesMap.get(r.fecha)!.push({
       id: r.id,
       fecha: r.fecha,
-      ejercicioNombre: r.rutina_ejercicio?.ejercicio?.nombre ?? 'Ejercicio',
-      grupos: (r.rutina_ejercicio?.ejercicio?.grupos ?? []).map((g: any) => g.grupo as GrupoMuscular),
+      ejercicioNombre: ejData.nombre,
+      grupos: ejData.grupos,
       series: r.series_completadas,
       reps: r.repeticiones_realizadas,
       peso: r.peso_utilizado,
@@ -145,7 +186,7 @@ async function getDatos(alumnoId: string, hoy: string) {
   }
   const historial: SesionHistorial[] = Array.from(sesionesMap.entries()).map(([fecha, registros]) => ({ fecha, registros }))
 
-  return { estadisticas, historial, pesos, totalRegistros: progreso.length }
+  return { estadisticas, historial, pesos, rpeHoy, totalRegistros: progresoRaw.length }
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -168,7 +209,7 @@ export default async function ProgresoAlumnoPage({ params }: Props) {
   if (!alumno) notFound()
 
   const hoy = getHoyChile()
-  const { estadisticas, historial, pesos, totalRegistros } = await getDatos(id, hoy)
+  const { estadisticas, historial, pesos, rpeHoy, totalRegistros } = await getDatos(id, hoy)
 
   return (
     <div className="px-4 py-6 md:p-8 max-w-4xl">
@@ -189,6 +230,7 @@ export default async function ProgresoAlumnoPage({ params }: Props) {
         estadisticas={estadisticas}
         historial={historial}
         pesos={pesos}
+        rpeHoy={rpeHoy}
         totalRegistros={totalRegistros}
       />
     </div>

@@ -11,6 +11,7 @@ import type {
   RegistroHistorial,
   RegistroBienestar,
   RegistroPeso,
+  RpeEjercicio,
 } from '@/app/(alumno)/progreso/page'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -121,20 +122,88 @@ function RPEBarChart({ puntos }: { puntos: PuntoTemporal[] }) {
   )
 }
 
+// ── RPE por Ejercicio (Diario) ────────────────────────────────────────────────
+
+function RPEEjerciciosChart({ ejercicios }: { ejercicios: RpeEjercicio[] }) {
+  const ticks = [2, 4, 6, 8, 10]
+  return (
+    <div>
+      <div className="flex">
+        {/* Y-axis */}
+        <div
+          className="flex flex-col-reverse justify-between w-5 pr-1.5 shrink-0"
+          style={{ height: CHART_H }}
+        >
+          {ticks.map((n) => (
+            <span key={n} className="block text-right text-[9px] text-slate-400 leading-none">{n}</span>
+          ))}
+        </div>
+
+        {/* Chart area */}
+        <div className="relative flex-1 border-l border-slate-100" style={{ height: CHART_H }}>
+          {/* Grid lines */}
+          {ticks.map((n) => (
+            <div
+              key={n}
+              className="absolute left-0 right-0 border-t border-slate-100"
+              style={{ top: `${((10 - n) / 10) * 100}%` }}
+            />
+          ))}
+
+          {/* Bars */}
+          <div className="absolute inset-0 flex items-end gap-1 px-1">
+            {ejercicios.map((ej, i) => {
+              const pct = (ej.rpe / 10) * 100
+              return (
+                <div key={i} className="relative flex flex-1 items-end h-full">
+                  <div
+                    className={`w-full rounded-t-sm transition-all ${rpeBarColor(ej.rpe)}`}
+                    style={{ height: `${pct}%`, minHeight: '4px' }}
+                  />
+                  <span
+                    className="absolute left-0 right-0 text-center text-[8px] font-bold leading-none text-slate-700 pointer-events-none"
+                    style={{ bottom: `calc(${pct}% + 3px)` }}
+                  >
+                    {ej.rpe}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* X-axis: nombre abreviado del ejercicio */}
+      <div className="flex mt-1.5 pl-5">
+        {ejercicios.map((ej, i) => (
+          <div key={i} className="flex-1 text-center overflow-hidden px-0.5">
+            <span className="block text-[9px] leading-none text-slate-500 truncate" title={ej.nombre}>
+              {ej.nombre.split(' ')[0]}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Stats Section ─────────────────────────────────────────────────────────────
 
 type Periodo = 'diario' | 'semanal' | 'mensual'
 
 const PERIODO_LABELS: Record<Periodo, string> = {
-  diario: 'Últimos 7 días',
+  diario: 'Hoy',
   semanal: 'Esta semana',
-  mensual: 'Últimas 8 semanas',
+  mensual: 'Este mes',
 }
 
-function EstadisticasTab({ estadisticas }: { estadisticas: DatosEstadisticas }) {
+function EstadisticasTab({ estadisticas, rpeHoy = [] }: { estadisticas: DatosEstadisticas; rpeHoy?: RpeEjercicio[] }) {
   const [periodo, setPeriodo] = useState<Periodo>('semanal')
   const puntos = estadisticas[periodo]
-  const tieneDatos = puntos.some((p) => p.rpe !== null)
+
+  const tieneDatos = periodo === 'diario'
+    ? rpeHoy.length > 0
+    : puntos.some((p) => p.rpe !== null)
 
   return (
     <div className="space-y-4">
@@ -163,12 +232,20 @@ function EstadisticasTab({ estadisticas }: { estadisticas: DatosEstadisticas }) 
 
         {tieneDatos ? (
           <div className="px-4 pt-4 pb-3">
-            <RPEBarChart puntos={puntos} />
+            {periodo === 'diario'
+              ? <RPEEjerciciosChart ejercicios={rpeHoy} />
+              : <RPEBarChart puntos={puntos} />
+            }
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
             <Zap className="h-10 w-10 text-slate-200" />
-            <p className="text-sm text-slate-400">Sin entrenamientos registrados en este período.</p>
+            <p className="text-sm text-slate-400">
+              {periodo === 'diario'
+                ? 'Sin ejercicios con RPE registrados hoy.'
+                : 'Sin entrenamientos registrados en este período.'
+              }
+            </p>
           </div>
         )}
 
@@ -449,10 +526,11 @@ interface Props {
   pesos?: RegistroPeso[]
   /** undefined = vista del profe (sin card de registro); null = alumno sin registro hoy */
   pesoHoy?: { peso_kg: number; notas: string | null } | null
+  rpeHoy?: RpeEjercicio[]
   totalRegistros: number
 }
 
-export function ProgresoCliente({ estadisticas, historial, bienestar = [], pesos = [], pesoHoy, totalRegistros }: Props) {
+export function ProgresoCliente({ estadisticas, historial, bienestar = [], pesos = [], pesoHoy, rpeHoy = [], totalRegistros }: Props) {
   const [tab, setTab] = useState<'estadisticas' | 'sueno' | 'peso' | 'historial'>('estadisticas')
 
   return (
@@ -494,7 +572,7 @@ export function ProgresoCliente({ estadisticas, historial, bienestar = [], pesos
         ))}
       </div>
 
-      {tab === 'estadisticas' && <EstadisticasTab estadisticas={estadisticas} />}
+      {tab === 'estadisticas' && <EstadisticasTab estadisticas={estadisticas} rpeHoy={rpeHoy} />}
       {tab === 'sueno' && <SuenoTab bienestar={bienestar} />}
       {tab === 'peso' && <PesoTab pesos={pesos} pesoHoy={pesoHoy} />}
       {tab === 'historial' && <HistorialTab historial={historial} totalRegistros={totalRegistros} />}
