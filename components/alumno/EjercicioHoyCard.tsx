@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { CheckCircle2, ChevronDown, ChevronUp, Clock, PlayCircle } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronUp, Clock, PlayCircle, Trash2 } from 'lucide-react'
 import { grupoColor, rpeButtonColor, RPE_CONFIG } from '@/lib/utils'
-import { registrarProgreso } from '@/app/(alumno)/rutina/actions'
+import { registrarProgreso, eliminarProgreso } from '@/app/(alumno)/rutina/actions'
 import type { GrupoMuscular } from '@/lib/types/database'
 
 export interface EjercicioHoyData {
@@ -103,6 +103,18 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
     setForm(p => ({ ...p, repsArray: Array(numSeries).fill(val) }))
   }
 
+  function handleEliminar() {
+    if (!fecha) return
+    startTransition(async () => {
+      const result = await eliminarProgreso(ejercicio.rutinaEjercicioId, fecha)
+      if (!result.error) {
+        setGuardado(false)
+        setExpandido(true)
+        setForm(f => ({ ...f, rpe: '' }))
+      }
+    })
+  }
+
   function handleGuardar(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
@@ -179,19 +191,32 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
           )}
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <span className="text-sm font-semibold text-slate-700">
-            {ejercicio.series}×{ejercicio.repeticiones}
-            {ejercicio.peso_objetivo ? ` · ${ejercicio.peso_objetivo}kg` : ''}
-          </span>
-          {guardado && !expandido && (
-            <span className="text-xs text-emerald-600 font-medium">Registrado ✓</span>
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Botón borrar registro — solo visible cuando está registrado y cerrado */}
+          {guardado && !expandido && fecha && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleEliminar() }}
+              disabled={isPending}
+              className="rounded-lg p-1.5 text-slate-300 hover:text-red-400 transition-colors"
+              title="Borrar registro"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
           )}
-          {expandido ? (
-            <ChevronUp className="h-4 w-4 text-slate-400" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-slate-400" />
-          )}
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-sm font-semibold text-slate-700">
+              {ejercicio.series}×{ejercicio.repeticiones}
+              {ejercicio.peso_objetivo ? ` · ${ejercicio.peso_objetivo}kg` : ''}
+            </span>
+            {guardado && !expandido && (
+              <span className="text-xs text-emerald-600 font-medium">Registrado ✓</span>
+            )}
+            {expandido ? (
+              <ChevronUp className="h-4 w-4 text-slate-400" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-slate-400" />
+            )}
+          </div>
         </div>
       </button>
 

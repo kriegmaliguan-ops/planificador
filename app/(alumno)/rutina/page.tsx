@@ -108,7 +108,7 @@ async function getDatosDia(
       dias:rutina_dias(
         id, dia_semana, semana_numero, nombre, es_descanso,
         ejercicios:rutina_ejercicios(
-          id, series, repeticiones, peso_objetivo, descanso_segundos, notas,
+          id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas,
           ejercicio:ejercicios(id, nombre, video_url, grupos:ejercicio_grupos(grupo:grupos_musculares(id, nombre)))
         )
       )

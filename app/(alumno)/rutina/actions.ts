@@ -59,6 +59,30 @@ export async function registrarProgreso(data: {
   return { success: true }
 }
 
+// ── Eliminar registro de progreso ────────────────────────────────────────────
+
+export async function eliminarProgreso(
+  rutinaEjercicioId: string,
+  fecha: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+
+  const { error } = await supabase
+    .from('registros_progreso')
+    .delete()
+    .eq('alumno_id', user.id)
+    .eq('rutina_ejercicio_id', rutinaEjercicioId)
+    .eq('fecha', fecha)
+
+  if (error) return { error: 'Error al eliminar el registro.' }
+
+  revalidatePath('/rutina', 'page')
+  revalidatePath('/progreso')
+  return {}
+}
+
 // ── Registrar bienestar/sueño ─────────────────────────────────────────────────
 
 export async function registrarBienestar(data: {
