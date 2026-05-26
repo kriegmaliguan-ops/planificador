@@ -6,6 +6,7 @@ import { typed, typedList } from '@/lib/supabase/types-helper'
 import { EliminarAlumnoBtn } from '@/components/alumnos/EliminarAlumnoBtn'
 import { SuspenderAlumnoBtn } from '@/components/alumnos/SuspenderAlumnoBtn'
 import { ResetPasswordBtn } from '@/components/alumnos/ResetPasswordBtn'
+import { EnviarNotifBtn } from '@/components/alumnos/EnviarNotifBtn'
 import type { Profile, Rutina } from '@/lib/types/database'
 
 interface Props {
@@ -220,8 +221,14 @@ export default async function AlumnoPerfilPage({ params }: Props) {
         )}
       </div>
 
+      {/* Enviar notificación */}
+      <EnviarNotifBtn
+        alumnoId={id}
+        alumnoNombre={profile.nombre}
+      />
+
       {/* Acceso y contraseña */}
-      <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+      <div className="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
         <div className="flex items-center gap-2 mb-3">
           <KeyRound className="h-4 w-4 text-slate-400" />
           <p className="text-sm font-semibold text-slate-900">Acceso</p>

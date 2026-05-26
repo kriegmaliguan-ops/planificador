@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Dumbbell, LogOut, KeyRound } from 'lucide-react'
+import { Dumbbell, LogOut, KeyRound, UserCircle } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { typed } from '@/lib/supabase/types-helper'
@@ -49,9 +49,13 @@ export default async function AlumnoLayout({
           <span className="text-sm font-semibold text-white">Planificador Pro</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-300">
-            {profile?.nombre} {profile?.apellido ?? ''}
-          </span>
+          <Link
+            href="/perfil"
+            className="flex items-center gap-1.5 text-sm text-slate-300 hover:text-white transition-colors"
+          >
+            <UserCircle className="h-4 w-4 shrink-0" />
+            {profile?.nombre}
+          </Link>
           <NotifBell
             userId={user.id}
             initialCount={unreadCount}

@@ -404,6 +404,69 @@ function SuenoTab({
   )
 }
 
+// ── Gráfico de línea de peso corporal ─────────────────────────────────────────
+
+function PesoLineChart({ pesos }: { pesos: RegistroPeso[] }) {
+  const sorted = [...pesos].sort((a, b) => a.fecha.localeCompare(b.fecha))
+  if (sorted.length < 2) return null
+
+  const weights = sorted.map((p) => p.peso_kg)
+  const minW = Math.min(...weights)
+  const maxW = Math.max(...weights)
+  const range = maxW - minW || 1
+  const PAD_X = 28
+  const PAD_Y = 12
+  const W = 300
+  const H = 110
+
+  const pts = sorted.map((p, i) => ({
+    x: PAD_X + (i / (sorted.length - 1)) * (W - PAD_X - 8),
+    y: PAD_Y + ((maxW - p.peso_kg) / range) * (H - PAD_Y * 2),
+    ...p,
+  }))
+
+  const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
+
+  // Y ticks: min, mid, max
+  const ticks = [minW, Math.round(((minW + maxW) / 2) * 10) / 10, maxW]
+
+  return (
+    <div className="rounded-2xl bg-white ring-1 ring-slate-100 px-4 pt-4 pb-3 overflow-hidden">
+      <p className="text-xs font-semibold text-slate-500 mb-3">Evolución del peso</p>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }}>
+        {/* Y grid lines + labels */}
+        {ticks.map((t) => {
+          const y = PAD_Y + ((maxW - t) / range) * (H - PAD_Y * 2)
+          return (
+            <g key={t}>
+              <line x1={PAD_X} y1={y} x2={W - 8} y2={y} stroke="#f1f5f9" strokeWidth="1" />
+              <text x={PAD_X - 4} y={y + 3} textAnchor="end" fontSize="8" fill="#94a3b8">{t}</text>
+            </g>
+          )
+        })}
+        {/* Line */}
+        <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        {/* Dots */}
+        {pts.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={i === pts.length - 1 ? 4 : 2.5}
+            fill={i === pts.length - 1 ? '#3b82f6' : '#93c5fd'}
+            stroke="white" strokeWidth="1.5"
+          />
+        ))}
+      </svg>
+      {/* X labels: first, last */}
+      <div className="flex justify-between mt-1 pl-7 pr-2">
+        <span className="text-[9px] text-slate-400">
+          {new Date(sorted[0].fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
+        </span>
+        <span className="text-[9px] text-blue-500 font-semibold">
+          {new Date(sorted[sorted.length - 1].fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} · {sorted[sorted.length - 1].peso_kg} kg
+        </span>
+      </div>
+    </div>
+  )
+}
+
 // ── Peso Tab ──────────────────────────────────────────────────────────────────
 
 function PesoTab({
@@ -433,6 +496,8 @@ function PesoTab({
         </div>
       ) : (
         <>
+          <PesoLineChart pesos={pesos} />
+
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-2xl bg-white px-3 py-3 text-center ring-1 ring-slate-100">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Actual</p>
