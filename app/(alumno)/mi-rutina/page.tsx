@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { Dumbbell, PauseCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { getHoyChile } from '@/lib/utils'
+import { getHoyChile, getSemanaActualPorFecha } from '@/lib/utils'
 import { RutinaCompleta } from './RutinaCompleta'
 
 function addDays(dateStr: string, days: number): string {
@@ -89,28 +89,11 @@ export default async function MiRutinaPage() {
     )
   }
 
-  // ── Detectar semana activa desde el último registro de entrenamiento ──────────
-  // Esto permite mapear cada semana_numero de la rutina a una semana calendario.
-  const allIds = (rutina.dias ?? []).flatMap((d: any) => (d.ejercicios ?? []).map((e: any) => e.id))
-  let semanaDetectada = 1
-
-  if (allIds.length > 0) {
-    const { data: ultimo } = await supabase
-      .from('registros_progreso')
-      .select('rutina_ejercicio_id')
-      .eq('alumno_id', user.id)
-      .in('rutina_ejercicio_id', allIds)
-      .order('fecha', { ascending: false })
-      .limit(1)
-      .maybeSingle() as { data: { rutina_ejercicio_id: string } | null }
-
-    if (ultimo) {
-      const diaDelUltimo = (rutina.dias ?? []).find((d: any) =>
-        (d.ejercicios ?? []).some((e: any) => e.id === ultimo.rutina_ejercicio_id)
-      )
-      if (diaDelUltimo?.semana_numero) semanaDetectada = diaDelUltimo.semana_numero
-    }
-  }
+  // ── Detectar semana activa por fecha de inicio (cronológico) ──────────────────
+  const maxSemana = Math.max(...(rutina.dias ?? []).map((d: any) => d.semana_numero ?? 1), 1)
+  const semanaDetectada = rutina.fecha_inicio
+    ? getSemanaActualPorFecha(rutina.fecha_inicio, hoy, maxSemana)
+    : 1
 
   return (
     <RutinaCompleta

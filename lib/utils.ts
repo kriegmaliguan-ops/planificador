@@ -90,6 +90,26 @@ export function rpeButtonColor(n: number, selected: boolean): string {
 }
 
 /**
+ * Dado el fecha_inicio de una rutina y la fecha de hoy,
+ * calcula qué semana (1-based) corresponde cronológicamente.
+ * Semana 1 = días 0-6 desde fecha_inicio, Semana 2 = días 7-13, etc.
+ * Si la fecha calculada supera maxSemana, devuelve maxSemana.
+ */
+export function getSemanaActualPorFecha(
+  fechaInicio: string,
+  hoy: string,
+  maxSemana = 999
+): number {
+  const [fy, fm, fd] = fechaInicio.split('-').map(Number)
+  const [hy, hm, hd] = hoy.split('-').map(Number)
+  const start = new Date(fy, fm - 1, fd)
+  const today = new Date(hy, hm - 1, hd)
+  const diffDays = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+  const semana = Math.max(1, Math.floor(diffDays / 7) + 1)
+  return Math.min(semana, maxSemana)
+}
+
+/**
  * Dado el fecha_inicio de una rutina y un número de semana (1-based),
  * devuelve el rango de fechas de esa semana en formato corto.
  * Ejemplos: "18–24 may" | "29 may – 4 jun"

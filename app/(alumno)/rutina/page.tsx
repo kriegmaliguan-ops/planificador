@@ -4,7 +4,7 @@ import { Dumbbell, PartyPopper, CalendarDays, Moon, ArrowLeft, Flame } from 'luc
 // PartyPopper kept for empty state
 import { createClient } from '@/lib/supabase/server'
 import { typed } from '@/lib/supabase/types-helper'
-import { getHoyChile, getDiaHoy, DIAS_LABELS, DIAS_SEMANA } from '@/lib/utils'
+import { getHoyChile, getDiaHoy, DIAS_LABELS, DIAS_SEMANA, getSemanaActualPorFecha } from '@/lib/utils'
 import { EjercicioHoyCard } from '@/components/alumno/EjercicioHoyCard'
 import { BienestarCard } from '@/components/alumno/BienestarCard'
 import { DateNav } from '@/components/alumno/DateNav'
@@ -130,25 +130,11 @@ async function getDatosDia(
     if (matchingDias.length <= 1) {
       diaHoy = matchingDias[0] ?? null
     } else {
-      // Rutina multi-semana: detectar semana activa por último registro
-      const allIds = (rawRutina.dias ?? []).flatMap((d: any) => (d.ejercicios ?? []).map((e: any) => e.id))
-      let semanaActiva = 1
-      if (allIds.length > 0) {
-        const { data: ultimo } = await supabase
-          .from('registros_progreso')
-          .select('rutina_ejercicio_id')
-          .eq('alumno_id', alumnoId)
-          .in('rutina_ejercicio_id', allIds)
-          .order('fecha', { ascending: false })
-          .limit(1)
-          .maybeSingle() as { data: { rutina_ejercicio_id: string } | null }
-        if (ultimo) {
-          const diaDelUltimo = (rawRutina.dias ?? []).find((d: any) =>
-            (d.ejercicios ?? []).some((e: any) => e.id === ultimo.rutina_ejercicio_id)
-          )
-          if (diaDelUltimo?.semana_numero) semanaActiva = diaDelUltimo.semana_numero
-        }
-      }
+      // Rutina multi-semana: detectar semana activa por fecha de inicio (cronológico)
+      const maxSemana = Math.max(...(rawRutina.dias ?? []).map((d: any) => d.semana_numero ?? 1), 1)
+      const semanaActiva = rawRutina.fecha_inicio
+        ? getSemanaActualPorFecha(rawRutina.fecha_inicio, fecha, maxSemana)
+        : 1
       diaHoy = matchingDias.find((d: any) => d.semana_numero === semanaActiva) ?? matchingDias[0]
     }
   }
