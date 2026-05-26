@@ -9,11 +9,15 @@ import type { EjercicioEnDia } from '@/app/(profe)/rutinas/[alumnoId]/page'
 interface EjercicioDiaRowProps {
   ejercicio: EjercicioEnDia
   alumnoId: string
+  isFirst?: boolean
+  isLast?: boolean
+  onMoveUp?: () => void
+  onMoveDown?: () => void
   onRemove: (id: string) => void
   onUpdate: (id: string, updates: Partial<EjercicioEnDia>) => void
 }
 
-export function EjercicioDiaRow({ ejercicio, alumnoId, onRemove, onUpdate }: EjercicioDiaRowProps) {
+export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp, onMoveDown, onRemove, onUpdate }: EjercicioDiaRowProps) {
   const [isPending, startTransition] = useTransition()
   const [expanded, setExpanded] = useState(false)
   const [local, setLocal] = useState({
@@ -128,6 +132,26 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, onRemove, onUpdate }: Eje
 
         {/* Acciones */}
         <div className="flex items-center gap-1">
+          {/* Mover arriba / abajo */}
+          <div className="flex flex-col">
+            <button
+              onClick={onMoveUp}
+              disabled={isFirst || isPending}
+              className="rounded p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-0 disabled:pointer-events-none transition-colors"
+              title="Subir"
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={onMoveDown}
+              disabled={isLast || isPending}
+              className="rounded p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-0 disabled:pointer-events-none transition-colors"
+              title="Bajar"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
           <button
             onClick={() => setExpanded((v) => !v)}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition-colors sm:hidden"

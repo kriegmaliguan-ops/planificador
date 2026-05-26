@@ -11,6 +11,7 @@ import {
   toggleDiaDescanso,
   copiarDia,
   copiarSemana,
+  reordenarEjercicios,
 } from '@/app/(profe)/rutinas/[alumnoId]/actions'
 import { EjercicioDiaRow } from './EjercicioDiaRow'
 import { AgregarEjercicioModal } from './AgregarEjercicioModal'
@@ -344,6 +345,36 @@ export function RutinaBuilder({
     })
   }
 
+  // ── Mover ejercicio arriba o abajo
+  function handleMoverEjercicio(id: string, direccion: 'up' | 'down') {
+    const ejercicios = rutina!.dias[semanaActiva][diaActivo]?.ejercicios ?? []
+    const idx = ejercicios.findIndex((e) => e.id === id)
+    if (idx < 0) return
+    const nuevoIdx = direccion === 'up' ? idx - 1 : idx + 1
+    if (nuevoIdx < 0 || nuevoIdx >= ejercicios.length) return
+
+    const nuevos = [...ejercicios]
+    ;[nuevos[idx], nuevos[nuevoIdx]] = [nuevos[nuevoIdx], nuevos[idx]]
+
+    setRutina((r) => {
+      if (!r) return r
+      return {
+        ...r,
+        dias: {
+          ...r.dias,
+          [semanaActiva]: {
+            ...r.dias[semanaActiva],
+            [diaActivo]: { ...r.dias[semanaActiva][diaActivo]!, ejercicios: nuevos },
+          },
+        },
+      }
+    })
+
+    startTransition(async () => {
+      await reordenarEjercicios(nuevos.map((e) => e.id), alumnoId)
+    })
+  }
+
   // ── Quitar ejercicio
   function handleEjercicioRemovido(id: string) {
     setRutina((r) => {
@@ -663,11 +694,15 @@ export function RutinaBuilder({
             </div>
           ) : (
             <div className="space-y-2">
-              {diaData.ejercicios.map((ej) => (
+              {diaData.ejercicios.map((ej, idx) => (
                 <EjercicioDiaRow
                   key={ej.id}
                   ejercicio={ej}
                   alumnoId={alumnoId}
+                  isFirst={idx === 0}
+                  isLast={idx === diaData.ejercicios.length - 1}
+                  onMoveUp={() => handleMoverEjercicio(ej.id, 'up')}
+                  onMoveDown={() => handleMoverEjercicio(ej.id, 'down')}
                   onRemove={handleEjercicioRemovido}
                   onUpdate={handleEjercicioActualizado}
                 />

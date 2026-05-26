@@ -146,6 +146,23 @@ export async function agregarEjercicioARutina({
   return { diaId: finalDiaId, ejercicioRutinaId: re.id }
 }
 
+// ── Reordenar ejercicios de un día ────────────────────────────────────────────
+
+export async function reordenarEjercicios(
+  ejercicioIds: string[],
+  alumnoId: string
+): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  await Promise.all(
+    ejercicioIds.map((id, i) =>
+      (supabase.from('rutina_ejercicios') as any).update({ orden: i }).eq('id', id)
+    )
+  )
+  revalidatePath(`/rutinas/${alumnoId}`)
+}
+
 // ── Actualizar parámetros de un ejercicio en la rutina ────────────────────────
 
 export async function actualizarEjercicioRutina(
