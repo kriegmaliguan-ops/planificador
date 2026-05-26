@@ -69,8 +69,7 @@ async function getData(alumnoId: string) {
         dias:rutina_dias(
           id, dia_semana, nombre, orden, es_descanso, semana_numero,
           ejercicios:rutina_ejercicios(
-            id, ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas,
-            ejercicio:ejercicios(id, nombre, grupos:ejercicio_grupos(grupo:grupos_musculares(id, nombre)))
+            id, ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas
           )
         )
       `)
@@ -108,14 +107,12 @@ async function getData(alumnoId: string) {
       const ejercicios: EjercicioEnDia[] = (dia.ejercicios ?? [])
         .sort((a: any, b: any) => a.orden - b.orden)
         .map((re: any) => {
-          // Preferir siempre los datos de la biblioteca; el join de Supabase
-          // no siempre resuelve el FK correctamente en este contexto.
           const lib = ejLibMap.get(re.ejercicio_id)
           return {
             id: re.id,
             ejercicio_id: re.ejercicio_id,
-            nombre: lib?.nombre ?? re.ejercicio?.nombre ?? '',
-            grupos: lib?.grupos ?? (re.ejercicio?.grupos ?? []).map((g: any) => g.grupo as GrupoMuscular),
+            nombre: lib?.nombre ?? '',
+            grupos: lib?.grupos ?? [],
             orden: re.orden,
             series: re.series,
             repeticiones: re.repeticiones,
