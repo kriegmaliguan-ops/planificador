@@ -97,6 +97,9 @@ async function getData(alumnoId: string) {
     const semanasSet = new Set<number>()
     const diasBySemana: Record<number, Record<DiaSemana, EstadoDia>> = {}
 
+    // Mapa id → datos del ejercicio de biblioteca (fuente de verdad para nombre y grupos)
+    const ejLibMap = new Map(ejerciciosLib.map((e) => [e.id, e]))
+
     for (const dia of (rawRutina.dias ?? [])) {
       const sem: number = dia.semana_numero ?? 1
       semanasSet.add(sem)
@@ -104,18 +107,23 @@ async function getData(alumnoId: string) {
 
       const ejercicios: EjercicioEnDia[] = (dia.ejercicios ?? [])
         .sort((a: any, b: any) => a.orden - b.orden)
-        .map((re: any) => ({
-          id: re.id,
-          ejercicio_id: re.ejercicio_id,
-          nombre: re.ejercicio?.nombre ?? '',
-          grupos: (re.ejercicio?.grupos ?? []).map((g: any) => g.grupo as GrupoMuscular),
-          orden: re.orden,
-          series: re.series,
-          repeticiones: re.repeticiones,
-          peso_objetivo: re.peso_objetivo,
-          descanso_segundos: re.descanso_segundos,
-          notas: re.notas,
-        }))
+        .map((re: any) => {
+          // Preferir siempre los datos de la biblioteca; el join de Supabase
+          // no siempre resuelve el FK correctamente en este contexto.
+          const lib = ejLibMap.get(re.ejercicio_id)
+          return {
+            id: re.id,
+            ejercicio_id: re.ejercicio_id,
+            nombre: lib?.nombre ?? re.ejercicio?.nombre ?? '',
+            grupos: lib?.grupos ?? (re.ejercicio?.grupos ?? []).map((g: any) => g.grupo as GrupoMuscular),
+            orden: re.orden,
+            series: re.series,
+            repeticiones: re.repeticiones,
+            peso_objetivo: re.peso_objetivo,
+            descanso_segundos: re.descanso_segundos,
+            notas: re.notas,
+          }
+        })
 
       diasBySemana[sem][dia.dia_semana as DiaSemana] = {
         id: dia.id,
@@ -127,20 +135,6 @@ async function getData(alumnoId: string) {
 
     if (semanasSet.size === 0) semanasSet.add(1)
     if (!diasBySemana[1]) diasBySemana[1] = initWeek()
-
-    // Cross-reference: si el join no devolvió el nombre del ejercicio, tomarlo de ejerciciosLib
-    const ejLibMap = new Map(ejerciciosLib.map((e) => [e.id, e]))
-    for (const semana of Object.values(diasBySemana)) {
-      for (const dia of Object.values(semana)) {
-        dia.ejercicios = dia.ejercicios.map((ej) => {
-          if (!ej.nombre && ejLibMap.has(ej.ejercicio_id)) {
-            const lib = ejLibMap.get(ej.ejercicio_id)!
-            return { ...ej, nombre: lib.nombre, grupos: lib.grupos }
-          }
-          return ej
-        })
-      }
-    }
 
     rutinaData = {
       id: rawRutina.id,
