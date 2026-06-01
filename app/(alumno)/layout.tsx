@@ -6,6 +6,7 @@ import { typed } from '@/lib/supabase/types-helper'
 import { NavBottom } from '@/components/alumno/NavBottom'
 import { NotifBell } from '@/components/alumno/NotifBell'
 import { InstallPwaBtn } from '@/components/alumno/InstallPwaBtn'
+import { EnablePushBtn } from '@/components/alumno/EnablePushBtn'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { logout } from '@/app/(auth)/login/actions'
 import type { Profile } from '@/lib/types/database'
@@ -102,6 +103,9 @@ export default async function AlumnoLayout({
 
       {/* Banner instalación PWA */}
       <InstallPwaBtn />
+
+      {/* Banner activar push notifications */}
+      <EnablePushBtn />
     </div>
   )
 }
