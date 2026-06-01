@@ -174,6 +174,7 @@ export async function actualizarEjercicioRutina(
     peso_objetivo: number | null
     descanso_segundos: number | null
     notas: string | null
+    rpe_objetivo: number | null
   }
 ): Promise<void> {
   const supabase = await createClient()
@@ -259,7 +260,7 @@ export async function copiarDia(
 
   const { data: ejercicios } = await supabase
     .from('rutina_ejercicios')
-    .select('ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas')
+    .select('ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas, rpe_objetivo')
     .eq('dia_id', diaOrigenId)
     .order('orden') as { data: any[] | null }
 
@@ -341,7 +342,7 @@ export async function copiarSemana(
   // Obtener todos los días de la semana origen con sus ejercicios
   const { data: diasOrigen } = await supabase
     .from('rutina_dias')
-    .select('id, dia_semana, nombre, es_descanso, orden, rutina_ejercicios(ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas)')
+    .select('id, dia_semana, nombre, es_descanso, orden, rutina_ejercicios(ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas, rpe_objetivo)')
     .eq('rutina_id', rutinaId)
     .eq('semana_numero', semanaOrigen) as { data: any[] | null }
 

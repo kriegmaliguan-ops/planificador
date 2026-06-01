@@ -92,6 +92,7 @@ export interface RutinaEjercicio {
   peso_objetivo: number | null
   descanso_segundos: number | null
   notas: string | null
+  rpe_objetivo: number | null
 }
 
 export interface RegistroProgreso {

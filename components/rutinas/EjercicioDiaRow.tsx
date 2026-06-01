@@ -26,6 +26,7 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
     peso_objetivo: ejercicio.peso_objetivo ?? '',
     descanso_segundos: ejercicio.descanso_segundos ?? 90,
     notas: ejercicio.notas ?? '',
+    rpe_objetivo: ejercicio.rpe_objetivo ?? '',
   })
 
   function handleBlur() {
@@ -36,6 +37,7 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
         peso_objetivo: local.peso_objetivo !== '' ? Number(local.peso_objetivo) : null,
         descanso_segundos: Number(local.descanso_segundos) || null,
         notas: local.notas || null,
+        rpe_objetivo: local.rpe_objetivo !== '' ? Number(local.rpe_objetivo) : null,
       })
       onUpdate(ejercicio.id, {
         series: Number(local.series) || 3,
@@ -43,6 +45,7 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
         peso_objetivo: local.peso_objetivo !== '' ? Number(local.peso_objetivo) : null,
         descanso_segundos: Number(local.descanso_segundos) || null,
         notas: local.notas || null,
+        rpe_objetivo: local.rpe_objetivo !== '' ? Number(local.rpe_objetivo) : null,
       })
     })
   }
@@ -128,6 +131,20 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
               className={`${inputClass} w-16`}
             />
           </div>
+          <div className="text-center">
+            <p className="mb-1 text-xs text-slate-400">RPE obj.</p>
+            <select
+              value={local.rpe_objetivo}
+              onChange={(e) => setLocal((p) => ({ ...p, rpe_objetivo: e.target.value }))}
+              onBlur={handleBlur}
+              className={`${inputClass} w-16`}
+            >
+              <option value="">—</option>
+              {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Acciones */}
@@ -198,6 +215,20 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
                 />
               </div>
             ))}
+            <div>
+              <label className="block mb-1 text-xs text-slate-500">RPE objetivo</label>
+              <select
+                value={local.rpe_objetivo}
+                onChange={(e) => setLocal((p) => ({ ...p, rpe_objetivo: e.target.value }))}
+                onBlur={handleBlur}
+                className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="">— Sin objetivo —</option>
+                {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       )}

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getHoyChile, getSemanaActualPorFecha } from '@/lib/utils'
 import { eliminarRegistroHistorialProfe, eliminarBienestarProfe } from './actions'
 import { ProgresoCliente } from '@/components/alumno/ProgresoCliente'
+import { ExportarWordBtn } from './ExportarWordBtn'
 import type { GrupoMuscular } from '@/lib/types/database'
 import type {
   DatosEstadisticas,
@@ -276,6 +277,8 @@ export default async function ProgresoAlumnoPage({ params }: Props) {
       <h1 className="mb-6 text-2xl font-bold text-slate-900">
         Progreso de {alumno.nombre}
       </h1>
+
+      <ExportarWordBtn alumnoId={id} />
 
       <ProgresoCliente
         estadisticas={estadisticas}

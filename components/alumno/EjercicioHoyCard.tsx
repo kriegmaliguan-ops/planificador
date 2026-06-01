@@ -16,6 +16,7 @@ export interface EjercicioHoyData {
   peso_objetivo: number | null
   descanso_segundos: number | null
   notas: string | null
+  rpe_objetivo: number | null
   ultimoPeso: number | null
   ultimasReps: string | null
   registroHoy: {
@@ -207,6 +208,7 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
             <span className="text-sm font-semibold text-slate-700">
               {ejercicio.series}×{ejercicio.repeticiones}
               {ejercicio.peso_objetivo ? ` · ${ejercicio.peso_objetivo}kg` : ''}
+              {ejercicio.rpe_objetivo ? ` · RPE ${ejercicio.rpe_objetivo}` : ''}
             </span>
             {guardado && !expandido && (
               <span className="text-xs text-emerald-600 font-medium">Registrado ✓</span>
@@ -237,6 +239,13 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
                 <Clock className="h-3.5 w-3.5 text-slate-500" />
                 <span className="text-xs font-medium text-slate-600">
                   Descanso {ejercicio.descanso_segundos}s
+                </span>
+              </div>
+            )}
+            {ejercicio.rpe_objetivo && (
+              <div className="flex items-center gap-1.5 rounded-xl bg-orange-50 px-3 py-1.5">
+                <span className="text-xs font-medium text-orange-700">
+                  RPE objetivo: {ejercicio.rpe_objetivo}/10
                 </span>
               </div>
             )}

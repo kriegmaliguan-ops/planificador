@@ -21,6 +21,7 @@ export interface EjercicioEnDia {
   peso_objetivo: number | null
   descanso_segundos: number | null
   notas: string | null
+  rpe_objetivo: number | null
 }
 
 export interface EstadoDia {
@@ -69,7 +70,7 @@ async function getData(alumnoId: string) {
         dias:rutina_dias(
           id, dia_semana, nombre, orden, es_descanso, semana_numero,
           ejercicios:rutina_ejercicios(
-            id, ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas
+            id, ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas, rpe_objetivo
           )
         )
       `)
@@ -143,6 +144,7 @@ async function getData(alumnoId: string) {
             peso_objetivo: re.peso_objetivo,
             descanso_segundos: re.descanso_segundos,
             notas: re.notas,
+            rpe_objetivo: re.rpe_objetivo ?? null,
           }
         })
 
