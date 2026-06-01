@@ -58,7 +58,7 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
   }
 
   const inputClass =
-    'w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-center'
+    'w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-center'
 
   return (
     <div className={`rounded-xl border bg-white transition-shadow ${isPending ? 'opacity-60' : ''}`}>
@@ -211,7 +211,7 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
                   value={(local as any)[key]}
                   onChange={(e) => setLocal((p) => ({ ...p, [key]: e.target.value }))}
                   onBlur={handleBlur}
-                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
             ))}
@@ -221,7 +221,7 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
                 value={local.rpe_objetivo}
                 onChange={(e) => setLocal((p) => ({ ...p, rpe_objetivo: e.target.value }))}
                 onBlur={handleBlur}
-                className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               >
                 <option value="">— Sin objetivo —</option>
                 {[1,2,3,4,5,6,7,8,9,10].map((n) => (
