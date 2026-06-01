@@ -8,9 +8,21 @@ import { DESCANSO_CONFIG } from '@/lib/utils'
 interface Props {
   registroHoy: { descanso: number; notas: string | null } | null
   fecha?: string
+  hoy?: string
 }
 
-export function BienestarCard({ registroHoy, fecha }: Props) {
+function labelFecha(fecha?: string, hoy?: string): string {
+  if (!fecha) return '¿Cómo dormiste anoche?'
+  if (fecha === hoy || !hoy) return '¿Cómo dormiste anoche?'
+  const [y, m, d] = fecha.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  const dia = date.toLocaleDateString('es-AR', { weekday: 'long' })
+  const diaNum = date.getDate()
+  const mes = date.toLocaleDateString('es-AR', { month: 'long' })
+  return `Sueño del ${dia} ${diaNum} de ${mes}`
+}
+
+export function BienestarCard({ registroHoy, fecha, hoy }: Props) {
   const [guardado, setGuardado] = useState(!!registroHoy)
   const [descanso, setDescanso] = useState<number | ''>(registroHoy?.descanso ?? '')
   const [notas, setNotas] = useState(registroHoy?.notas ?? '')
@@ -38,7 +50,7 @@ export function BienestarCard({ registroHoy, fecha }: Props) {
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
         <Moon className="h-4 w-4 text-slate-400 shrink-0" />
-        <p className="flex-1 text-sm font-semibold text-slate-700">¿Cómo dormiste anoche?</p>
+        <p className="flex-1 text-sm font-semibold text-slate-700">{labelFecha(fecha, hoy)}</p>
         {guardado && (
           <span className="text-xs font-medium text-emerald-600">✓ Registrado</span>
         )}
