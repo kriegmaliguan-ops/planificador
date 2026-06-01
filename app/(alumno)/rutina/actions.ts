@@ -213,3 +213,50 @@ export async function eliminarRegistroBienestar(id: string): Promise<{ error?: s
   revalidatePath('/progreso')
   return {}
 }
+
+// ── Registrar todos los ejercicios sin registro del día ──────────────────────
+
+export async function registrarTodoDia(data: {
+  ejercicios: Array<{
+    rutinaEjercicioId: string
+    series: number
+    repeticiones: string
+  }>
+  fecha: string
+}): Promise<{ error?: string; registrados?: number }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+
+  // Obtener los que ya tienen registro en esa fecha
+  const reIds = data.ejercicios.map((e) => e.rutinaEjercicioId)
+  const { data: existentes } = await supabase
+    .from('registros_progreso')
+    .select('rutina_ejercicio_id')
+    .eq('alumno_id', user.id)
+    .eq('fecha', data.fecha)
+    .in('rutina_ejercicio_id', reIds) as { data: { rutina_ejercicio_id: string }[] | null }
+
+  const yaRegistrados = new Set((existentes ?? []).map((r) => r.rutina_ejercicio_id))
+
+  const pendientes = data.ejercicios.filter((e) => !yaRegistrados.has(e.rutinaEjercicioId))
+  if (pendientes.length === 0) return { registrados: 0 }
+
+  const inserts = pendientes.map((e) => ({
+    alumno_id: user.id,
+    rutina_ejercicio_id: e.rutinaEjercicioId,
+    fecha: data.fecha,
+    series_completadas: e.series,
+    repeticiones_realizadas: e.repeticiones,
+    peso_utilizado: null,
+    rpe: null,
+    notas: null,
+  }))
+
+  const { error } = await (supabase.from('registros_progreso') as any).insert(inserts)
+  if (error) return { error: 'Error al registrar ejercicios.' }
+
+  revalidatePath('/rutina', 'page')
+  revalidatePath('/progreso')
+  return { registrados: pendientes.length }
+}

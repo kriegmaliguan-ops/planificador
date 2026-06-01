@@ -233,19 +233,17 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
         </div>
       )}
 
-      {/* Notas (siempre visible si hay notas, o al expandir) */}
-      {(expanded || ejercicio.notas) && (
-        <div className="border-t border-slate-100 px-4 py-2">
-          <input
-            type="text"
-            value={local.notas}
-            onChange={(e) => setLocal((p) => ({ ...p, notas: e.target.value }))}
-            onBlur={handleBlur}
-            placeholder="Notas del ejercicio..."
-            className="w-full rounded-lg border-0 bg-transparent px-0 py-1 text-xs text-slate-500 outline-none placeholder:text-slate-300"
-          />
-        </div>
-      )}
+      {/* Notas — siempre visible */}
+      <div className="border-t border-slate-100 px-4 py-2">
+        <input
+          type="text"
+          value={local.notas}
+          onChange={(e) => setLocal((p) => ({ ...p, notas: e.target.value }))}
+          onBlur={handleBlur}
+          placeholder="Notas del ejercicio (ej: baja en 3 seg, sube en 1)..."
+          className="w-full rounded-lg border-0 bg-transparent px-0 py-1 text-xs text-slate-500 outline-none placeholder:text-slate-300"
+        />
+      </div>
     </div>
   )
 }

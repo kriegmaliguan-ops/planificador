@@ -8,6 +8,7 @@ import { getHoyChile, getDiaHoy, DIAS_LABELS, DIAS_SEMANA, getSemanaActualPorFec
 import { EjercicioHoyCard } from '@/components/alumno/EjercicioHoyCard'
 import { BienestarCard } from '@/components/alumno/BienestarCard'
 import { DateNav } from '@/components/alumno/DateNav'
+import { RegistrarTodoBtn } from '@/components/alumno/RegistrarTodoBtn'
 import type { Profile, GrupoMuscular, DiaSemana } from '@/lib/types/database'
 import type { EjercicioHoyData } from '@/components/alumno/EjercicioHoyCard'
 
@@ -369,6 +370,9 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
         )}
       </div>
 
+      {/* Sueño — siempre visible */}
+      <BienestarCard registroHoy={bienestarHoy} fecha={fecha} />
+
       {/* Racha + semana — solo en vista de hoy */}
       {esHoy && !modoSemana && (() => {
         const { racha, semanaActual, lunes } = rachaInfo
@@ -427,9 +431,6 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
         )
       })()}
 
-      {/* Sueño — primero que registran, visible en cualquier día */}
-      {!modoSemana && <BienestarCard registroHoy={bienestarHoy} fecha={fecha} />}
-
       {/* Día de descanso */}
       {esDescanso ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-6 py-10 text-center shadow-sm ring-1 ring-slate-100">
@@ -457,6 +458,16 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
               fecha={fecha}
             />
           ))}
+
+          <RegistrarTodoBtn
+            ejercicios={ejerciciosHoy.map((e) => ({
+              rutinaEjercicioId: e.rutinaEjercicioId,
+              series: e.series,
+              repeticiones: e.repeticiones,
+              registrado: e.registroHoy != null,
+            }))}
+            fecha={fecha}
+          />
 
           {rpePromedio !== null && (
             <div className="rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100 flex items-center justify-between">
