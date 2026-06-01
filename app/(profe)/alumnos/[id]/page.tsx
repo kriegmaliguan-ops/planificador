@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Mail, CalendarDays, Dumbbell, ChevronRight, TrendingUp, User, KeyRound } from 'lucide-react'
+import { ArrowLeft, Mail, CalendarDays, Dumbbell, ChevronRight, TrendingUp, User, KeyRound, StickyNote } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { typed, typedList } from '@/lib/supabase/types-helper'
 import { EliminarAlumnoBtn } from '@/components/alumnos/EliminarAlumnoBtn'
@@ -119,6 +119,29 @@ export default async function AlumnoPerfilPage({ params }: Props) {
           </Link>
         </div>
       </div>
+
+      {/* Notas privadas del profe — solo si existen */}
+      {profile.notas_profe && profile.notas_profe.trim() && (
+        <Link
+          href={`/alumnos/${id}/perfil`}
+          className="mb-6 block rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200 hover:ring-amber-300 transition-shadow group"
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-200 text-amber-800">
+              <StickyNote className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-amber-900 mb-0.5">
+                Notas privadas <span className="font-normal opacity-70">(solo vos las ves)</span>
+              </p>
+              <p className="text-sm text-amber-900 whitespace-pre-wrap leading-snug">
+                {profile.notas_profe}
+              </p>
+            </div>
+            <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-amber-400 group-hover:text-amber-600 transition-colors mt-1" />
+          </div>
+        </Link>
+      )}
 
       {/* Navegación rápida */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
