@@ -17,6 +17,7 @@ async function getRutinas(): Promise<RutinaRow[]> {
   const { data } = await supabase
     .from('rutinas')
     .select('id, nombre, activa, fecha_inicio, alumno_id, alumno:profiles!alumno_id(nombre, apellido)')
+    .eq('is_template', false)
     .order('activa', { ascending: false })
     .order('created_at', { ascending: false }) as { data: any[] | null }
 

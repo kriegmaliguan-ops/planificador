@@ -1,7 +1,8 @@
 'use client'
 
 import { Fragment, useState, useTransition } from 'react'
-import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck, CalendarDays, X, Trash2, MessageCircle, Send, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck, CalendarDays, X, Trash2, MessageCircle, Send, Loader2, FileText } from 'lucide-react'
 import { DIAS_SEMANA, DIAS_LABELS, getWeekDates } from '@/lib/utils'
 import {
   crearRutina,
@@ -15,17 +16,25 @@ import {
   reordenarEjercicios,
   enviarMensajeAlumno,
 } from '@/app/(profe)/rutinas/[alumnoId]/actions'
+import { crearRutinaDesdePlantilla } from '@/app/(profe)/plantillas/actions'
 import { EjercicioDiaRow } from './EjercicioDiaRow'
 import { AgregarEjercicioModal } from './AgregarEjercicioModal'
 import type { DiaSemana } from '@/lib/types/database'
 import type { EjercicioItem } from '@/app/(profe)/ejercicios/page'
 import type { RutinaData, EstadoDia, EjercicioEnDia } from '@/app/(profe)/rutinas/[alumnoId]/page'
 
+interface PlantillaResumen {
+  id: string
+  nombre: string
+}
+
 interface RutinaBuilderProps {
   alumnoId: string
   alumnoNombre: string
   rutinaInicial: RutinaData | null
   ejerciciosLib: EjercicioItem[]
+  templateMode?: boolean
+  plantillasDisponibles?: PlantillaResumen[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -60,22 +69,42 @@ function getProxLunes(): string {
 function CrearRutinaForm({
   alumnoId,
   alumnoNombre,
+  plantillasDisponibles,
   onCreada,
 }: {
   alumnoId: string
   alumnoNombre: string
+  plantillasDisponibles: PlantillaResumen[]
   onCreada: (rutina: RutinaData) => void
 }) {
   const [nombre, setNombre] = useState('')
   const [fechaInicio, setFechaInicio] = useState<string>(getTodayLocal)
   const [mensaje, setMensaje] = useState('')
+  const [plantillaId, setPlantillaId] = useState<string>('')  // '' = desde cero
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nombre.trim()) return
+    setError(null)
     startTransition(async () => {
+      if (plantillaId) {
+        // Clonar desde plantilla
+        const result = await crearRutinaDesdePlantilla({
+          plantillaId,
+          alumnoId,
+          nombre: nombre.trim(),
+          fechaInicio: fechaInicio || null,
+          mensajeProfe: mensaje.trim() || null,
+        })
+        if (result.error) { setError(result.error); return }
+        // La rutina viene con todos los días y ejercicios — re-fetch full
+        router.refresh()
+        return
+      }
+
       const result = await crearRutina(alumnoId, nombre.trim(), fechaInicio || null, mensaje.trim() || null)
       if (result.error) { setError(result.error); return }
 
@@ -103,6 +132,33 @@ function CrearRutinaForm({
           <p className="mt-1 text-sm text-slate-500">Esta será la rutina activa del alumno.</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Selector de plantilla (opcional) */}
+          {plantillasDisponibles.length > 0 && (
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 text-slate-400" />
+                  Empezar desde plantilla <span className="text-xs font-normal text-slate-400">(opcional)</span>
+                </span>
+              </label>
+              <select
+                value={plantillaId}
+                onChange={(e) => setPlantillaId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-white"
+              >
+                <option value="">— Crear desde cero —</option>
+                {plantillasDisponibles.map((p) => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+              {plantillaId && (
+                <p className="text-xs text-violet-600">
+                  ✨ Se va a clonar la plantilla con todos sus días y ejercicios.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-1">
             <label className="block text-sm font-medium text-slate-700">Nombre de la rutina</label>
             <input
@@ -287,6 +343,8 @@ export function RutinaBuilder({
   alumnoNombre,
   rutinaInicial,
   ejerciciosLib,
+  templateMode = false,
+  plantillasDisponibles = [],
 }: RutinaBuilderProps) {
   const [rutina, setRutina] = useState<RutinaData | null>(rutinaInicial)
   const [semanaActiva, setSemanaActiva] = useState<number>(rutinaInicial?.semanas[0] ?? 1)
@@ -306,6 +364,7 @@ export function RutinaBuilder({
       <CrearRutinaForm
         alumnoId={alumnoId}
         alumnoNombre={alumnoNombre}
+        plantillasDisponibles={plantillasDisponibles}
         onCreada={(r) => { setRutina(r); setSemanaActiva(1) }}
       />
     )
@@ -584,14 +643,22 @@ export function RutinaBuilder({
               </button>
             </>
           )}
-          <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-            Activa
-          </span>
-          <EnviarMensajeBtn alumnoId={alumnoId} alumnoNombre={alumnoNombre} />
+          {templateMode ? (
+            <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+              Plantilla
+            </span>
+          ) : (
+            <>
+              <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                Activa
+              </span>
+              <EnviarMensajeBtn alumnoId={alumnoId} alumnoNombre={alumnoNombre} />
+            </>
+          )}
         </div>
 
-        {/* Fecha de inicio editable */}
-        <div className="flex items-center gap-1.5">
+        {/* Fecha de inicio editable — no aplica en modo plantilla */}
+        {!templateMode && <div className="flex items-center gap-1.5">
           {editandoFecha ? (
             <>
               <input
@@ -623,7 +690,7 @@ export function RutinaBuilder({
               <Pencil className="h-3 w-3 text-slate-400" />
             </button>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* Selector de semanas con agrupación por mes */}

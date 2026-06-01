@@ -57,7 +57,7 @@ function initWeek(): Record<DiaSemana, EstadoDia> {
 async function getData(alumnoId: string) {
   const supabase = await createClient()
 
-  const [alumnoResult, ejerciciosResult, rutinaResult] = await Promise.all([
+  const [alumnoResult, ejerciciosResult, rutinaResult, plantillasResult] = await Promise.all([
     supabase.from('profiles').select('id, nombre, apellido, suspendido').eq('id', alumnoId).single(),
     supabase
       .from('ejercicios')
@@ -77,6 +77,11 @@ async function getData(alumnoId: string) {
       .eq('alumno_id', alumnoId)
       .eq('activa', true)
       .maybeSingle(),
+    supabase
+      .from('rutinas')
+      .select('id, nombre')
+      .eq('is_template', true)
+      .order('created_at', { ascending: false }) as unknown as Promise<{ data: { id: string; nombre: string }[] | null }>,
   ])
 
   const alumno = typed<Pick<Profile, 'id' | 'nombre' | 'apellido' | 'suspendido'>>(alumnoResult).data
@@ -169,7 +174,8 @@ async function getData(alumnoId: string) {
     }
   }
 
-  return { alumno, ejerciciosLib, rutinaData }
+  const plantillas = (plantillasResult.data ?? []) as { id: string; nombre: string }[]
+  return { alumno, ejerciciosLib, rutinaData, plantillas }
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -184,7 +190,7 @@ export default async function RutinaBuilderPage({ params }: Props) {
 
   if (!data) notFound()
 
-  const { alumno, ejerciciosLib, rutinaData } = data
+  const { alumno, ejerciciosLib, rutinaData, plantillas } = data
 
   if (alumno.suspendido === true) {
     return (
@@ -237,6 +243,7 @@ export default async function RutinaBuilderPage({ params }: Props) {
         alumnoNombre={`${alumno.nombre} ${alumno.apellido ?? ''}`.trim()}
         rutinaInicial={rutinaData}
         ejerciciosLib={ejerciciosLib}
+        plantillasDisponibles={plantillas}
       />
     </div>
   )
