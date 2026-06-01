@@ -58,6 +58,27 @@ export interface RpeEjercicio {
   rpe: number
 }
 
+export interface RegistroPorEjercicio {
+  id: string
+  fecha: string
+  peso: number | null
+  series: number | null
+  reps: string | null
+  rpe: number | null
+  notas: string | null
+  deltaPeso: number | null
+  deltaReps: number | null
+  esPrimero: boolean
+}
+
+export interface EjercicioConHistorial {
+  ejercicioId: string
+  nombre: string
+  grupos: GrupoMuscular[]
+  registros: RegistroPorEjercicio[] // ordenados de más reciente a más viejo
+  ultimaFecha: string
+}
+
 // ── Helpers de agregación ─────────────────────────────────────────────────────
 
 function avgOrNull(nums: number[]): number | null {
@@ -299,7 +320,62 @@ async function getDatos(alumnoId: string, hoy: string) {
     registros,
   }))
 
-  return { estadisticas, historial, bienestar, pesos, rpeHoy, totalRegistros: progresoRaw.length }
+  // Historial por ejercicio (con deltas vs sesión anterior)
+  // Agrupar por ejercicioId (NO por rutina_ejercicio_id: si el profe recrea el ejercicio, queremos seguir comparando)
+  const porEjercicioMap = new Map<string, { nombre: string; grupos: GrupoMuscular[]; rows: any[] }>()
+  for (const r of progresoRaw) {
+    const ejId = ejIdByReId.get(r.rutina_ejercicio_id)
+    if (!ejId) continue
+    const ejData = getEjData(r.rutina_ejercicio_id)
+    if (!porEjercicioMap.has(ejId)) {
+      porEjercicioMap.set(ejId, { nombre: ejData.nombre, grupos: ejData.grupos, rows: [] })
+    }
+    porEjercicioMap.get(ejId)!.rows.push(r)
+  }
+
+  const ejercicios: EjercicioConHistorial[] = []
+  for (const [ejId, data] of porEjercicioMap.entries()) {
+    // Ordenar cronológicamente (ascendente) para calcular deltas, después invertir
+    const sorted = [...data.rows].sort((a, b) => a.fecha.localeCompare(b.fecha))
+    const registros: RegistroPorEjercicio[] = sorted.map((r, i) => {
+      const prev = i > 0 ? sorted[i - 1] : null
+      const repsActual = parseReps(r.repeticiones_realizadas)
+      const repsPrev = prev ? parseReps(prev.repeticiones_realizadas) : null
+      return {
+        id: r.id,
+        fecha: r.fecha,
+        peso: r.peso_utilizado,
+        series: r.series_completadas,
+        reps: r.repeticiones_realizadas,
+        rpe: r.rpe,
+        notas: r.notas,
+        deltaPeso: prev && r.peso_utilizado != null && prev.peso_utilizado != null
+          ? Math.round((r.peso_utilizado - prev.peso_utilizado) * 10) / 10
+          : null,
+        deltaReps: repsActual != null && repsPrev != null ? repsActual - repsPrev : null,
+        esPrimero: i === 0,
+      }
+    })
+    // Invertir: más reciente primero
+    registros.reverse()
+    ejercicios.push({
+      ejercicioId: ejId,
+      nombre: data.nombre,
+      grupos: data.grupos,
+      registros,
+      ultimaFecha: registros[0]?.fecha ?? '',
+    })
+  }
+  // Ordenar ejercicios por fecha de último registro (más reciente primero)
+  ejercicios.sort((a, b) => b.ultimaFecha.localeCompare(a.ultimaFecha))
+
+  return { estadisticas, historial, bienestar, pesos, rpeHoy, ejercicios, totalRegistros: progresoRaw.length }
+}
+
+function parseReps(reps: string | null): number | null {
+  if (!reps) return null
+  const m = reps.match(/\d+/)
+  return m ? Number(m[0]) : null
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -315,7 +391,7 @@ export default async function ProgresoPage() {
   if (!profile) redirect('/login')
 
   const hoy = getHoyChile()
-  const { estadisticas, historial, bienestar, pesos, rpeHoy, totalRegistros } = await getDatos(profile.id, hoy)
+  const { estadisticas, historial, bienestar, pesos, rpeHoy, ejercicios, totalRegistros } = await getDatos(profile.id, hoy)
 
   // Peso de hoy (null = no registrado aún, undefined = no se muestra el card)
   const pesoHoyRaw = pesos.find((p) => p.fecha === hoy)
@@ -331,6 +407,7 @@ export default async function ProgresoPage() {
       pesos={pesos}
       pesoHoy={pesoHoy}
       rpeHoy={rpeHoy}
+      ejercicios={ejercicios}
       totalRegistros={totalRegistros}
       onDeleteRegistro={eliminarRegistroProgreso}
       onUpdateRegistro={actualizarRegistroProgreso}

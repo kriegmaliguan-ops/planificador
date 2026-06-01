@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { TrendingUp, Dumbbell, ChevronDown, ChevronUp, Moon, Zap, Scale, Pencil, Trash2, Check, X } from 'lucide-react'
+import { TrendingUp, Dumbbell, ChevronDown, ChevronUp, Moon, Zap, Scale, Pencil, Trash2, Check, X, ArrowUp, ArrowDown, Sparkles } from 'lucide-react'
 import { grupoColor, DESCANSO_CONFIG, RPE_CONFIG, rpeButtonColor } from '@/lib/utils'
 import { PesoCard } from '@/components/alumno/PesoCard'
 import type {
@@ -12,6 +12,8 @@ import type {
   RegistroBienestar,
   RegistroPeso,
   RpeEjercicio,
+  EjercicioConHistorial,
+  RegistroPorEjercicio,
 } from '@/app/(alumno)/progreso/page'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -826,6 +828,143 @@ function RegistroRow({
   )
 }
 
+// ── Por Ejercicio Tab ─────────────────────────────────────────────────────────
+
+function PorEjercicioTab({ ejercicios }: { ejercicios: EjercicioConHistorial[] }) {
+  const [selectedId, setSelectedId] = useState<string>(ejercicios[0]?.ejercicioId ?? '')
+
+  if (ejercicios.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-2 rounded-2xl bg-white px-6 py-10 text-center ring-1 ring-slate-100">
+        <Dumbbell className="h-10 w-10 text-slate-200" />
+        <p className="text-sm text-slate-400">Aún no hay registros para mostrar.</p>
+        <p className="text-xs text-slate-400">Registrá ejercicios desde tu rutina del día.</p>
+      </div>
+    )
+  }
+
+  const ej = ejercicios.find((e) => e.ejercicioId === selectedId) ?? ejercicios[0]
+  const totalRegistros = ej.registros.length
+  const conPeso = ej.registros.filter((r) => r.peso !== null).map((r) => r.peso as number)
+  const maxPeso = conPeso.length > 0 ? Math.max(...conPeso) : null
+
+  return (
+    <div className="space-y-4">
+      {/* Selector */}
+      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
+        <label className="mb-2 block text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          Elegí un ejercicio
+        </label>
+        <select
+          value={selectedId}
+          onChange={(e) => setSelectedId(e.target.value)}
+          className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+        >
+          {ejercicios.map((e) => (
+            <option key={e.ejercicioId} value={e.ejercicioId}>
+              {e.nombre} ({e.registros.length})
+            </option>
+          ))}
+        </select>
+
+        {/* Resumen del ejercicio */}
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+          <div className="flex flex-wrap gap-1">
+            {ej.grupos.map((g) => (
+              <span key={g.id} className={`rounded-full px-1.5 py-0 text-[10px] font-medium ${grupoColor(g.nombre)}`}>
+                {g.nombre}
+              </span>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 text-xs">
+            <span className="text-slate-500">
+              <span className="font-bold text-slate-900">{totalRegistros}</span> sesiones
+            </span>
+            {maxPeso !== null && (
+              <span className="text-slate-500">
+                Máx: <span className="font-bold text-slate-900">{maxPeso} kg</span>
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Lista de registros */}
+      <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
+          <Dumbbell className="h-4 w-4 text-slate-400" />
+          <p className="text-sm font-semibold text-slate-700">Historial</p>
+          <span className="ml-auto text-xs text-slate-400">{totalRegistros} registros</span>
+        </div>
+        <div className="divide-y divide-slate-50">
+          {ej.registros.map((r) => (
+            <RegistroEjercicioRow key={r.id} r={r} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RegistroEjercicioRow({ r }: { r: RegistroPorEjercicio }) {
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-slate-500 capitalize">{formatFechaCorta(r.fecha)}</p>
+          <p className="mt-0.5 text-sm font-bold text-slate-900">
+            {r.peso !== null ? `${r.peso} kg` : 'Sin peso'}
+            {r.reps !== null && (
+              <span className="ml-1 font-medium text-slate-500">
+                × {r.reps} reps
+              </span>
+            )}
+            {r.series !== null && (
+              <span className="ml-1 text-xs font-normal text-slate-400">
+                ({r.series} series)
+              </span>
+            )}
+          </p>
+        </div>
+
+        {/* Badges */}
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          {r.esPrimero && (
+            <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+              <Sparkles className="h-2.5 w-2.5" />
+              Primera vez
+            </span>
+          )}
+          {!r.esPrimero && r.deltaPeso !== null && r.deltaPeso !== 0 && (
+            <span className={`flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+              r.deltaPeso > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+            }`}>
+              {r.deltaPeso > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
+              {r.deltaPeso > 0 ? '+' : ''}{r.deltaPeso} kg
+            </span>
+          )}
+          {!r.esPrimero && r.deltaReps !== null && r.deltaReps !== 0 && (
+            <span className={`flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+              r.deltaReps > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+            }`}>
+              {r.deltaReps > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
+              {r.deltaReps > 0 ? '+' : ''}{r.deltaReps} rep{Math.abs(r.deltaReps) === 1 ? '' : 's'}
+            </span>
+          )}
+          {r.rpe !== null && (
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${rpeColor(r.rpe)}`}>
+              RPE {r.rpe}
+            </span>
+          )}
+        </div>
+      </div>
+      {r.notas && (
+        <p className="mt-1.5 text-xs italic text-slate-500">"{r.notas}"</p>
+      )}
+    </div>
+  )
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 interface Props {
@@ -836,6 +975,7 @@ interface Props {
   /** undefined = vista del profe (sin card de registro); null = alumno sin registro hoy */
   pesoHoy?: { peso_kg: number; notas: string | null } | null
   rpeHoy?: RpeEjercicio[]
+  ejercicios?: EjercicioConHistorial[]
   totalRegistros: number
   onDeleteRegistro?: (id: string) => Promise<{ error?: string }>
   onUpdateRegistro?: (id: string, data: UpdateData) => Promise<{ error?: string }>
@@ -849,12 +989,13 @@ export function ProgresoCliente({
   pesos = [],
   pesoHoy,
   rpeHoy = [],
+  ejercicios = [],
   totalRegistros,
   onDeleteRegistro,
   onUpdateRegistro,
   onDeleteBienestar,
 }: Props) {
-  const [tab, setTab] = useState<'estadisticas' | 'sueno' | 'peso' | 'historial'>('estadisticas')
+  const [tab, setTab] = useState<'estadisticas' | 'sueno' | 'peso' | 'historial' | 'porEjercicio'>('estadisticas')
   const [localHistorial, setLocalHistorial] = useState<SesionHistorial[]>(historial)
   const [localBienestar, setLocalBienestar] = useState<RegistroBienestar[]>(bienestar)
 
@@ -913,17 +1054,18 @@ export function ProgresoCliente({
       </div>
 
       {/* Tabs */}
-      <div className="flex rounded-xl bg-slate-100 p-1 gap-0.5">
+      <div className="flex rounded-xl bg-slate-100 p-1 gap-0.5 overflow-x-auto">
         {([
           ['estadisticas', 'RPE'],
           ['sueno', 'Sueño'],
           ['peso', 'Peso'],
           ['historial', 'Historial'],
+          ['porEjercicio', 'Por ejercicio'],
         ] as const).map(([id, label]) => (
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-colors ${
+            className={`flex-1 rounded-lg py-2 px-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
               tab === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
             }`}
           >
@@ -949,6 +1091,7 @@ export function ProgresoCliente({
           onUpdate={onUpdateRegistro ? handleUpdateRegistro : undefined}
         />
       )}
+      {tab === 'porEjercicio' && <PorEjercicioTab ejercicios={ejercicios} />}
     </div>
   )
 }

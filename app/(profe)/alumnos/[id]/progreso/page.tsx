@@ -15,6 +15,8 @@ import type {
   PuntoTemporal,
   RegistroPeso,
   RpeEjercicio,
+  EjercicioConHistorial,
+  RegistroPorEjercicio,
 } from '@/app/(alumno)/progreso/page'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -239,7 +241,58 @@ async function getDatos(alumnoId: string, hoy: string) {
   }
   const historial: SesionHistorial[] = Array.from(sesionesMap.entries()).map(([fecha, registros]) => ({ fecha, registros }))
 
-  return { estadisticas, historial, bienestar, pesos, rpeHoy, totalRegistros: progresoRaw.length }
+  // Historial por ejercicio (con deltas vs sesión anterior)
+  const porEjercicioMap = new Map<string, { nombre: string; grupos: GrupoMuscular[]; rows: any[] }>()
+  for (const r of progresoRaw) {
+    const ejId = ejIdByReId.get(r.rutina_ejercicio_id)
+    if (!ejId) continue
+    const ejData = getEjData(r.rutina_ejercicio_id)
+    if (!porEjercicioMap.has(ejId)) {
+      porEjercicioMap.set(ejId, { nombre: ejData.nombre, grupos: ejData.grupos, rows: [] })
+    }
+    porEjercicioMap.get(ejId)!.rows.push(r)
+  }
+
+  const ejercicios: EjercicioConHistorial[] = []
+  for (const [ejId, data] of porEjercicioMap.entries()) {
+    const sorted = [...data.rows].sort((a, b) => a.fecha.localeCompare(b.fecha))
+    const registros: RegistroPorEjercicio[] = sorted.map((r, i) => {
+      const prev = i > 0 ? sorted[i - 1] : null
+      const repsActual = parseReps(r.repeticiones_realizadas)
+      const repsPrev = prev ? parseReps(prev.repeticiones_realizadas) : null
+      return {
+        id: r.id,
+        fecha: r.fecha,
+        peso: r.peso_utilizado,
+        series: r.series_completadas,
+        reps: r.repeticiones_realizadas,
+        rpe: r.rpe,
+        notas: r.notas,
+        deltaPeso: prev && r.peso_utilizado != null && prev.peso_utilizado != null
+          ? Math.round((r.peso_utilizado - prev.peso_utilizado) * 10) / 10
+          : null,
+        deltaReps: repsActual != null && repsPrev != null ? repsActual - repsPrev : null,
+        esPrimero: i === 0,
+      }
+    })
+    registros.reverse()
+    ejercicios.push({
+      ejercicioId: ejId,
+      nombre: data.nombre,
+      grupos: data.grupos,
+      registros,
+      ultimaFecha: registros[0]?.fecha ?? '',
+    })
+  }
+  ejercicios.sort((a, b) => b.ultimaFecha.localeCompare(a.ultimaFecha))
+
+  return { estadisticas, historial, bienestar, pesos, rpeHoy, ejercicios, totalRegistros: progresoRaw.length }
+}
+
+function parseReps(reps: string | null): number | null {
+  if (!reps) return null
+  const m = reps.match(/\d+/)
+  return m ? Number(m[0]) : null
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -262,7 +315,7 @@ export default async function ProgresoAlumnoPage({ params }: Props) {
   if (!alumno) notFound()
 
   const hoy = getHoyChile()
-  const { estadisticas, historial, bienestar, pesos, rpeHoy, totalRegistros } = await getDatos(id, hoy)
+  const { estadisticas, historial, bienestar, pesos, rpeHoy, ejercicios, totalRegistros } = await getDatos(id, hoy)
 
   return (
     <div className="mx-auto px-4 py-6 md:p-8 max-w-4xl">
@@ -286,6 +339,7 @@ export default async function ProgresoAlumnoPage({ params }: Props) {
         bienestar={bienestar}
         pesos={pesos}
         rpeHoy={rpeHoy}
+        ejercicios={ejercicios}
         totalRegistros={totalRegistros}
         onDeleteRegistro={eliminarRegistroHistorialProfe}
         onDeleteBienestar={eliminarBienestarProfe}
