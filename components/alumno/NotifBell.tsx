@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition, useRef } from 'react'
-import { Bell, Check, Dumbbell, UserPlus, PlayCircle, Megaphone } from 'lucide-react'
+import { Bell, Check, Dumbbell, UserPlus, PlayCircle, Megaphone, MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { marcarTodasLeidas } from '@/app/(alumno)/notificaciones/actions'
 
@@ -24,6 +24,7 @@ const TIPO_ICON: Record<string, React.ElementType> = {
   rutina_nueva: Dumbbell,
   bienvenida: UserPlus,
   plan_reactivado: PlayCircle,
+  mensaje_profe: MessageCircle,
 }
 
 function getIcon(tipo: string) {

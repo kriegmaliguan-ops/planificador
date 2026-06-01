@@ -11,7 +11,8 @@ import type { DiaSemana } from '@/lib/types/database'
 export async function crearRutina(
   alumnoId: string,
   nombre: string,
-  fechaInicio?: string | null
+  fechaInicio?: string | null,
+  mensajeProfe?: string | null
 ): Promise<{ error?: string; id?: string }> {
   const supabase = await createClient()
   const {
@@ -32,16 +33,51 @@ export async function crearRutina(
 
   if (error || !data) return { error: 'Error al crear la rutina.' }
 
-  // Notificar al alumno
+  // Notificar al alumno (con mensaje personalizado del profe si lo dejó)
+  const cuerpo = mensajeProfe && mensajeProfe.trim()
+    ? mensajeProfe.trim()
+    : `"${nombre}" ya está disponible en tu app.`
+
   await crearNotificacion(
     alumnoId,
     'rutina_nueva',
     '¡Tu profe te asignó una nueva rutina!',
-    `"${nombre}" ya está disponible en tu app.`
+    cuerpo
   )
 
   revalidatePath(`/rutinas/${alumnoId}`)
   return { id: data.id }
+}
+
+// ── Enviar mensaje al alumno (independiente de crear rutina) ─────────────────
+
+export async function enviarMensajeAlumno(
+  alumnoId: string,
+  mensaje: string
+): Promise<{ error?: string }> {
+  const texto = mensaje.trim()
+  if (!texto) return { error: 'El mensaje no puede estar vacío.' }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+
+  // Validar que el caller sea profe
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single() as { data: { role: string } | null }
+  if (profile?.role !== 'profe') return { error: 'Sin permisos.' }
+
+  await crearNotificacion(
+    alumnoId,
+    'mensaje_profe',
+    'Mensaje de tu profe',
+    texto
+  )
+
+  return {}
 }
 
 // ── Actualizar fecha de inicio de rutina ─────────────────────────────────────

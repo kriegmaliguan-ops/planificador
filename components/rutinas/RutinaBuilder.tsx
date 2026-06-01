@@ -1,7 +1,7 @@
 'use client'
 
 import { Fragment, useState, useTransition } from 'react'
-import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck, CalendarDays, X, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck, CalendarDays, X, Trash2, MessageCircle, Send, Loader2 } from 'lucide-react'
 import { DIAS_SEMANA, DIAS_LABELS, getWeekDates } from '@/lib/utils'
 import {
   crearRutina,
@@ -13,6 +13,7 @@ import {
   copiarSemana,
   eliminarSemana,
   reordenarEjercicios,
+  enviarMensajeAlumno,
 } from '@/app/(profe)/rutinas/[alumnoId]/actions'
 import { EjercicioDiaRow } from './EjercicioDiaRow'
 import { AgregarEjercicioModal } from './AgregarEjercicioModal'
@@ -67,6 +68,7 @@ function CrearRutinaForm({
 }) {
   const [nombre, setNombre] = useState('')
   const [fechaInicio, setFechaInicio] = useState<string>(getTodayLocal)
+  const [mensaje, setMensaje] = useState('')
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -74,7 +76,7 @@ function CrearRutinaForm({
     e.preventDefault()
     if (!nombre.trim()) return
     startTransition(async () => {
-      const result = await crearRutina(alumnoId, nombre.trim(), fechaInicio || null)
+      const result = await crearRutina(alumnoId, nombre.trim(), fechaInicio || null, mensaje.trim() || null)
       if (result.error) { setError(result.error); return }
 
       onCreada({
@@ -140,6 +142,27 @@ function CrearRutinaForm({
             </p>
           </div>
 
+          {/* Mensaje opcional */}
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-slate-700">
+              <span className="flex items-center gap-1.5">
+                <MessageCircle className="h-3.5 w-3.5 text-slate-400" />
+                Mensaje para el alumno <span className="text-xs font-normal text-slate-400">(opcional)</span>
+              </span>
+            </label>
+            <textarea
+              value={mensaje}
+              onChange={(e) => setMensaje(e.target.value)}
+              placeholder="Ej: Arrancamos con un mesociclo de fuerza. Enfocate en la técnica del peso muerto esta semana."
+              rows={3}
+              maxLength={500}
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none"
+            />
+            <p className="text-xs text-slate-400">
+              Si lo dejás vacío, le llega un aviso estándar.
+            </p>
+          </div>
+
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"
@@ -151,6 +174,109 @@ function CrearRutinaForm({
         </form>
       </div>
     </div>
+  )
+}
+
+// ── Botón enviar mensaje al alumno ────────────────────────────────────────────
+
+function EnviarMensajeBtn({ alumnoId, alumnoNombre }: { alumnoId: string; alumnoNombre: string }) {
+  const [open, setOpen] = useState(false)
+  const [mensaje, setMensaje] = useState('')
+  const [isPending, startTransition] = useTransition()
+  const [enviado, setEnviado] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function handleEnviar() {
+    if (!mensaje.trim()) return
+    setError(null)
+    startTransition(async () => {
+      const result = await enviarMensajeAlumno(alumnoId, mensaje.trim())
+      if (result.error) { setError(result.error); return }
+      setEnviado(true)
+      setMensaje('')
+      setTimeout(() => { setOpen(false); setEnviado(false) }, 1500)
+    })
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="ml-1 flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+        title="Enviar mensaje al alumno"
+      >
+        <MessageCircle className="h-3.5 w-3.5" />
+        Mensaje
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4" onClick={() => !isPending && setOpen(false)}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
+                <MessageCircle className="h-4 w-4 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Mensaje para {alumnoNombre}</h3>
+                <p className="text-xs text-slate-500">Le va a llegar como notificación.</p>
+              </div>
+              <button
+                onClick={() => setOpen(false)}
+                disabled={isPending}
+                className="ml-auto rounded-lg p-1 text-slate-400 hover:bg-slate-100 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <textarea
+              autoFocus
+              value={mensaje}
+              onChange={(e) => setMensaje(e.target.value)}
+              placeholder="Ej: Esta semana enfocate en la técnica del peso muerto. Subí el peso solo si la forma se mantiene."
+              rows={4}
+              maxLength={500}
+              disabled={isPending || enviado}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none disabled:bg-slate-50"
+            />
+            <div className="mt-1 flex justify-between">
+              <span className="text-[10px] text-slate-400">{mensaje.length}/500</span>
+            </div>
+
+            {error && <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
+
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => setOpen(false)}
+                disabled={isPending}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleEnviar}
+                disabled={isPending || !mensaje.trim() || enviado}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50 transition-colors"
+              >
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : enviado ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Enviado
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-3.5 w-3.5" />
+                    Enviar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -461,6 +587,7 @@ export function RutinaBuilder({
           <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
             Activa
           </span>
+          <EnviarMensajeBtn alumnoId={alumnoId} alumnoNombre={alumnoNombre} />
         </div>
 
         {/* Fecha de inicio editable */}
