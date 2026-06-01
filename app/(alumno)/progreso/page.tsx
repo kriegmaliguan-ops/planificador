@@ -53,6 +53,19 @@ export interface RegistroPeso {
   notas: string | null
 }
 
+export interface RegistroMedida {
+  id: string
+  fecha: string
+  cintura_cm: number | null
+  pecho_cm: number | null
+  brazo_cm: number | null
+  muslo_cm: number | null
+  pantorrilla_cm: number | null
+  cadera_cm: number | null
+  cuello_cm: number | null
+  notas: string | null
+}
+
 export interface RpeEjercicio {
   nombre: string
   rpe: number
@@ -194,7 +207,7 @@ async function getDatos(alumnoId: string, hoy: string) {
   const desdeStr = addDays(hoy, -180)
 
   // Step 1: fetch all data in parallel (sin FK joins en progreso para evitar alias issue)
-  const [bienestarResult, progresoResult, pesoResult, rutinaResult] = await Promise.allSettled([
+  const [bienestarResult, progresoResult, pesoResult, rutinaResult, medidasResult] = await Promise.allSettled([
     supabase
       .from('registros_bienestar')
       .select('id, fecha, descanso, notas')
@@ -220,6 +233,12 @@ async function getDatos(alumnoId: string, hoy: string) {
       .eq('alumno_id', alumnoId)
       .eq('activa', true)
       .maybeSingle() as unknown as Promise<{ data: any | null }>,
+    supabase
+      .from('medidas_corporales')
+      .select('id, fecha, cintura_cm, pecho_cm, brazo_cm, muslo_cm, pantorrilla_cm, cadera_cm, cuello_cm, notas')
+      .eq('alumno_id', alumnoId)
+      .gte('fecha', desdeStr)
+      .order('fecha', { ascending: false }) as unknown as Promise<{ data: any[] | null }>,
   ])
 
   // Deduplicar bienestar: un registro por día (el más reciente)
@@ -241,6 +260,7 @@ async function getDatos(alumnoId: string, hoy: string) {
     return true
   })
   const pesos = (pesoResult.status === 'fulfilled' ? (pesoResult.value.data ?? []) : []) as RegistroPeso[]
+  const medidas = (medidasResult.status === 'fulfilled' ? (medidasResult.value.data ?? []) : []) as RegistroMedida[]
   const rawRutina = (rutinaResult.status === 'fulfilled' ? rutinaResult.value.data : null) as any
   const rutinaFechaInicio: string | null = rawRutina?.fecha_inicio ?? null
   const rutinaMaxSemana = rawRutina
@@ -369,7 +389,7 @@ async function getDatos(alumnoId: string, hoy: string) {
   // Ordenar ejercicios por fecha de último registro (más reciente primero)
   ejercicios.sort((a, b) => b.ultimaFecha.localeCompare(a.ultimaFecha))
 
-  return { estadisticas, historial, bienestar, pesos, rpeHoy, ejercicios, totalRegistros: progresoRaw.length }
+  return { estadisticas, historial, bienestar, pesos, medidas, rpeHoy, ejercicios, totalRegistros: progresoRaw.length }
 }
 
 function parseReps(reps: string | null): number | null {
@@ -391,12 +411,27 @@ export default async function ProgresoPage() {
   if (!profile) redirect('/login')
 
   const hoy = getHoyChile()
-  const { estadisticas, historial, bienestar, pesos, rpeHoy, ejercicios, totalRegistros } = await getDatos(profile.id, hoy)
+  const { estadisticas, historial, bienestar, pesos, medidas, rpeHoy, ejercicios, totalRegistros } = await getDatos(profile.id, hoy)
 
   // Peso de hoy (null = no registrado aún, undefined = no se muestra el card)
   const pesoHoyRaw = pesos.find((p) => p.fecha === hoy)
   const pesoHoy = pesoHoyRaw
     ? { peso_kg: pesoHoyRaw.peso_kg, notas: pesoHoyRaw.notas }
+    : null
+
+  // Medida de hoy (null = no registrada; undefined = vista del profe, no se muestra el card)
+  const medidaHoyRaw = medidas.find((m) => m.fecha === hoy)
+  const medidaHoy: MedidaSinId | null = medidaHoyRaw
+    ? {
+        cintura_cm: medidaHoyRaw.cintura_cm,
+        pecho_cm: medidaHoyRaw.pecho_cm,
+        brazo_cm: medidaHoyRaw.brazo_cm,
+        muslo_cm: medidaHoyRaw.muslo_cm,
+        pantorrilla_cm: medidaHoyRaw.pantorrilla_cm,
+        cadera_cm: medidaHoyRaw.cadera_cm,
+        cuello_cm: medidaHoyRaw.cuello_cm,
+        notas: medidaHoyRaw.notas,
+      }
     : null
 
   return (
@@ -405,7 +440,9 @@ export default async function ProgresoPage() {
       historial={historial}
       bienestar={bienestar}
       pesos={pesos}
+      medidas={medidas}
       pesoHoy={pesoHoy}
+      medidaHoy={medidaHoy}
       rpeHoy={rpeHoy}
       ejercicios={ejercicios}
       totalRegistros={totalRegistros}
@@ -415,3 +452,5 @@ export default async function ProgresoPage() {
     />
   )
 }
+
+export type MedidaSinId = Omit<RegistroMedida, 'id' | 'fecha'>

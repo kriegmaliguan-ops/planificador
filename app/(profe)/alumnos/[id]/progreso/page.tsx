@@ -14,6 +14,7 @@ import type {
   RegistroBienestar,
   PuntoTemporal,
   RegistroPeso,
+  RegistroMedida,
   RpeEjercicio,
   EjercicioConHistorial,
   RegistroPorEjercicio,
@@ -124,7 +125,7 @@ async function getDatos(alumnoId: string, hoy: string) {
   const desdeStr = addDays(hoy, -180)
 
   // Step 1: fetch all data in parallel (sin FK joins en progreso)
-  const [bienestarResult, progresoResult, pesoResult, rutinaResult] = await Promise.allSettled([
+  const [bienestarResult, progresoResult, pesoResult, rutinaResult, medidasResult] = await Promise.allSettled([
     supabase
       .from('registros_bienestar')
       .select('id, fecha, descanso, notas')
@@ -150,6 +151,12 @@ async function getDatos(alumnoId: string, hoy: string) {
       .eq('alumno_id', alumnoId)
       .eq('activa', true)
       .maybeSingle() as unknown as Promise<{ data: any | null }>,
+    supabase
+      .from('medidas_corporales')
+      .select('id, fecha, cintura_cm, pecho_cm, brazo_cm, muslo_cm, pantorrilla_cm, cadera_cm, cuello_cm, notas')
+      .eq('alumno_id', alumnoId)
+      .gte('fecha', desdeStr)
+      .order('fecha', { ascending: false }) as unknown as Promise<{ data: any[] | null }>,
   ])
 
   // Deduplicar bienestar: un registro por día (el más reciente)
@@ -171,6 +178,7 @@ async function getDatos(alumnoId: string, hoy: string) {
     return true
   })
   const pesos = (pesoResult.status === 'fulfilled' ? (pesoResult.value.data ?? []) : []) as RegistroPeso[]
+  const medidas = (medidasResult.status === 'fulfilled' ? (medidasResult.value.data ?? []) : []) as RegistroMedida[]
   const rawRutina = (rutinaResult.status === 'fulfilled' ? rutinaResult.value.data : null) as any
   const rutinaFechaInicio: string | null = rawRutina?.fecha_inicio ?? null
   const rutinaMaxSemana = rawRutina
@@ -286,7 +294,7 @@ async function getDatos(alumnoId: string, hoy: string) {
   }
   ejercicios.sort((a, b) => b.ultimaFecha.localeCompare(a.ultimaFecha))
 
-  return { estadisticas, historial, bienestar, pesos, rpeHoy, ejercicios, totalRegistros: progresoRaw.length }
+  return { estadisticas, historial, bienestar, pesos, medidas, rpeHoy, ejercicios, totalRegistros: progresoRaw.length }
 }
 
 function parseReps(reps: string | null): number | null {
@@ -315,7 +323,7 @@ export default async function ProgresoAlumnoPage({ params }: Props) {
   if (!alumno) notFound()
 
   const hoy = getHoyChile()
-  const { estadisticas, historial, bienestar, pesos, rpeHoy, ejercicios, totalRegistros } = await getDatos(id, hoy)
+  const { estadisticas, historial, bienestar, pesos, medidas, rpeHoy, ejercicios, totalRegistros } = await getDatos(id, hoy)
 
   return (
     <div className="mx-auto px-4 py-6 md:p-8 max-w-4xl">
@@ -338,6 +346,7 @@ export default async function ProgresoAlumnoPage({ params }: Props) {
         historial={historial}
         bienestar={bienestar}
         pesos={pesos}
+        medidas={medidas}
         rpeHoy={rpeHoy}
         ejercicios={ejercicios}
         totalRegistros={totalRegistros}

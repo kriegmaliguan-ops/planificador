@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { TrendingUp, Dumbbell, ChevronDown, ChevronUp, Moon, Zap, Scale, Pencil, Trash2, Check, X, ArrowUp, ArrowDown, Sparkles } from 'lucide-react'
+import { TrendingUp, Dumbbell, ChevronDown, ChevronUp, Moon, Zap, Scale, Pencil, Trash2, Check, X, ArrowUp, ArrowDown, Sparkles, Ruler } from 'lucide-react'
 import { grupoColor, DESCANSO_CONFIG, RPE_CONFIG, rpeButtonColor } from '@/lib/utils'
 import { PesoCard } from '@/components/alumno/PesoCard'
+import { MedidasCard } from '@/components/alumno/MedidasCard'
 import type {
   DatosEstadisticas,
   PuntoTemporal,
@@ -11,9 +12,11 @@ import type {
   RegistroHistorial,
   RegistroBienestar,
   RegistroPeso,
+  RegistroMedida,
   RpeEjercicio,
   EjercicioConHistorial,
   RegistroPorEjercicio,
+  MedidaSinId,
 } from '@/app/(alumno)/progreso/page'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -474,9 +477,13 @@ function PesoLineChart({ pesos }: { pesos: RegistroPeso[] }) {
 function PesoTab({
   pesos,
   pesoHoy,
+  medidas = [],
+  medidaHoy,
 }: {
   pesos: RegistroPeso[]
   pesoHoy?: { peso_kg: number; notas: string | null } | null
+  medidas?: RegistroMedida[]
+  medidaHoy?: MedidaSinId | null
 }) {
   const sorted = [...pesos].sort((a, b) => b.fecha.localeCompare(a.fecha))
   const pesoActual = sorted[0]?.peso_kg ?? null
@@ -486,9 +493,12 @@ function PesoTab({
       ? Math.round((pesoActual - pesoInicial) * 10) / 10
       : null
 
+  const medidasSorted = [...medidas].sort((a, b) => b.fecha.localeCompare(a.fecha))
+
   return (
     <div className="space-y-4">
       {pesoHoy !== undefined && <PesoCard registroHoy={pesoHoy} />}
+      {medidaHoy !== undefined && <MedidasCard registroHoy={medidaHoy} />}
 
       {sorted.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl bg-white px-6 py-12 text-center ring-1 ring-slate-100">
@@ -561,6 +571,89 @@ function PesoTab({
           </div>
         </>
       )}
+
+      {/* Historial de medidas corporales */}
+      {medidasSorted.length > 0 && (
+        <HistorialMedidas medidas={medidasSorted} />
+      )}
+    </div>
+  )
+}
+
+// ── Historial de medidas corporales ──────────────────────────────────────────
+
+function HistorialMedidas({ medidas }: { medidas: RegistroMedida[] }) {
+  const [openId, setOpenId] = useState<string | null>(null)
+  // Calcular deltas de cintura (la métrica más útil)
+  return (
+    <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
+        <Ruler className="h-4 w-4 text-slate-400" />
+        <p className="text-sm font-semibold text-slate-700">Historial de medidas</p>
+        <span className="ml-auto text-xs text-slate-400">{medidas.length} registros</span>
+      </div>
+      <div className="divide-y divide-slate-50">
+        {medidas.map((m, i) => {
+          const prev = medidas[i + 1]
+          const deltaCintura = prev && m.cintura_cm !== null && prev.cintura_cm !== null
+            ? Math.round((m.cintura_cm - prev.cintura_cm) * 10) / 10
+            : null
+          const isOpen = openId === m.id
+          const valores: Array<[string, number | null]> = [
+            ['Cintura', m.cintura_cm],
+            ['Pecho', m.pecho_cm],
+            ['Cadera', m.cadera_cm],
+            ['Brazo', m.brazo_cm],
+            ['Muslo', m.muslo_cm],
+            ['Pantorrilla', m.pantorrilla_cm],
+            ['Cuello', m.cuello_cm],
+          ]
+          const cargados = valores.filter(([, v]) => v !== null)
+          return (
+            <div key={m.id}>
+              <button
+                onClick={() => setOpenId(isOpen ? null : m.id)}
+                className="w-full px-4 py-3 hover:bg-slate-50 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-800 capitalize">{formatFechaCorta(m.fecha)}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {cargados.length} medida{cargados.length === 1 ? '' : 's'} registrada{cargados.length === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                  {deltaCintura !== null && deltaCintura !== 0 && (
+                    <span className={`text-xs font-semibold shrink-0 ${deltaCintura > 0 ? 'text-orange-500' : 'text-emerald-500'}`}>
+                      Cintura {deltaCintura > 0 ? '↑' : '↓'} {Math.abs(deltaCintura).toFixed(1)} cm
+                    </span>
+                  )}
+                  {m.cintura_cm !== null && (
+                    <span className="shrink-0 text-sm font-bold text-slate-900">
+                      {m.cintura_cm} <span className="text-xs font-normal text-slate-400">cm</span>
+                    </span>
+                  )}
+                  {isOpen ? <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />}
+                </div>
+              </button>
+              {isOpen && (
+                <div className="px-4 pb-3 grid grid-cols-2 gap-2">
+                  {valores.map(([label, v]) => (
+                    <div key={label} className={`rounded-lg px-3 py-2 ${v !== null ? 'bg-slate-50' : 'bg-transparent opacity-40'}`}>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+                      <p className="mt-0.5 text-sm font-bold text-slate-900">
+                        {v !== null ? `${v} cm` : '—'}
+                      </p>
+                    </div>
+                  ))}
+                  {m.notas && (
+                    <p className="col-span-2 mt-1 text-xs italic text-slate-500">"{m.notas}"</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -972,8 +1065,10 @@ interface Props {
   historial: SesionHistorial[]
   bienestar?: RegistroBienestar[]
   pesos?: RegistroPeso[]
+  medidas?: RegistroMedida[]
   /** undefined = vista del profe (sin card de registro); null = alumno sin registro hoy */
   pesoHoy?: { peso_kg: number; notas: string | null } | null
+  medidaHoy?: MedidaSinId | null
   rpeHoy?: RpeEjercicio[]
   ejercicios?: EjercicioConHistorial[]
   totalRegistros: number
@@ -987,7 +1082,9 @@ export function ProgresoCliente({
   historial,
   bienestar = [],
   pesos = [],
+  medidas = [],
   pesoHoy,
+  medidaHoy,
   rpeHoy = [],
   ejercicios = [],
   totalRegistros,
@@ -1058,7 +1155,7 @@ export function ProgresoCliente({
         {([
           ['estadisticas', 'RPE'],
           ['sueno', 'Sueño'],
-          ['peso', 'Peso'],
+          ['peso', 'Cuerpo'],
           ['historial', 'Historial'],
           ['porEjercicio', 'Por ejercicio'],
         ] as const).map(([id, label]) => (
@@ -1082,7 +1179,7 @@ export function ProgresoCliente({
           onDeleteBienestar={onDeleteBienestar ? handleDeleteBienestar : undefined}
         />
       )}
-      {tab === 'peso' && <PesoTab pesos={pesos} pesoHoy={pesoHoy} />}
+      {tab === 'peso' && <PesoTab pesos={pesos} pesoHoy={pesoHoy} medidas={medidas} medidaHoy={medidaHoy} />}
       {tab === 'historial' && (
         <HistorialTab
           historial={localHistorial}

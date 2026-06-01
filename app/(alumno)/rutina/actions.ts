@@ -260,3 +260,80 @@ export async function registrarTodoDia(data: {
   revalidatePath('/progreso')
   return { registrados: pendientes.length }
 }
+
+// ── Registrar medidas corporales ─────────────────────────────────────────────
+
+export async function registrarMedidas(data: {
+  cintura_cm: number | null
+  pecho_cm: number | null
+  brazo_cm: number | null
+  muslo_cm: number | null
+  pantorrilla_cm: number | null
+  cadera_cm: number | null
+  cuello_cm: number | null
+  notas: string | null
+  fecha?: string
+}): Promise<{ error?: string; success?: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+
+  // Al menos un campo debe tener valor
+  const algunoNoNull = [
+    data.cintura_cm, data.pecho_cm, data.brazo_cm, data.muslo_cm,
+    data.pantorrilla_cm, data.cadera_cm, data.cuello_cm
+  ].some((v) => v !== null && !Number.isNaN(v))
+  if (!algunoNoNull) return { error: 'Cargá al menos una medida.' }
+
+  const hoy = data.fecha ?? getHoyChile()
+
+  // UPSERT: si ya hay un registro para esta fecha, actualizarlo
+  const { data: existentes } = await supabase
+    .from('medidas_corporales')
+    .select('id')
+    .eq('alumno_id', user.id)
+    .eq('fecha', hoy)
+    .limit(1) as { data: { id: string }[] | null }
+  const existente = existentes?.[0] ?? null
+
+  const payload = {
+    cintura_cm: data.cintura_cm,
+    pecho_cm: data.pecho_cm,
+    brazo_cm: data.brazo_cm,
+    muslo_cm: data.muslo_cm,
+    pantorrilla_cm: data.pantorrilla_cm,
+    cadera_cm: data.cadera_cm,
+    cuello_cm: data.cuello_cm,
+    notas: data.notas,
+  }
+
+  if (existente) {
+    const { error } = await (supabase.from('medidas_corporales') as any)
+      .update(payload)
+      .eq('id', existente.id)
+    if (error) return { error: 'Error al actualizar las medidas.' }
+  } else {
+    const { error } = await (supabase.from('medidas_corporales') as any)
+      .insert({ alumno_id: user.id, fecha: hoy, ...payload })
+    if (error) return { error: 'Error al guardar las medidas.' }
+  }
+
+  revalidatePath('/progreso')
+  return { success: true }
+}
+
+// ── Eliminar medida corporal por ID ──────────────────────────────────────────
+
+export async function eliminarMedida(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+  const { error } = await supabase
+    .from('medidas_corporales')
+    .delete()
+    .eq('id', id)
+    .eq('alumno_id', user.id)
+  if (error) return { error: 'Error al eliminar.' }
+  revalidatePath('/progreso')
+  return {}
+}
