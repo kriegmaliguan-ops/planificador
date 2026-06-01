@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { typed } from '@/lib/supabase/types-helper'
 import { NavBottom } from '@/components/alumno/NavBottom'
 import { NotifBell } from '@/components/alumno/NotifBell'
+import { InstallPwaBtn } from '@/components/alumno/InstallPwaBtn'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { logout } from '@/app/(auth)/login/actions'
 import type { Profile } from '@/lib/types/database'
@@ -98,6 +99,9 @@ export default async function AlumnoLayout({
 
       {/* Nav inferior */}
       <NavBottom />
+
+      {/* Banner instalación PWA */}
+      <InstallPwaBtn />
     </div>
   )
 }
