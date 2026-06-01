@@ -97,7 +97,8 @@ async function getDatosDia(
   alumnoId: string,
   fecha: string,
   semanaOverride?: number,
-  diaOverride?: DiaSemana
+  diaOverride?: DiaSemana,
+  hoyParaBienestar?: string
 ) {
   const supabase = await createClient()
   const diaDelFecha = getDiaFromFecha(fecha)
@@ -181,12 +182,13 @@ async function getDatosDia(
     }
   }
 
-  // Bienestar de la fecha seleccionada
+  // Bienestar — siempre para HOY (no para la fecha del día que se está viendo)
+  const bienestarFecha = hoyParaBienestar ?? fecha
   const { data: bienestarRaw } = await supabase
     .from('registros_bienestar')
     .select('descanso, notas')
     .eq('alumno_id', alumnoId)
-    .eq('fecha', fecha)
+    .eq('fecha', bienestarFecha)
     .maybeSingle() as { data: { descanso: number; notas: string | null } | null }
 
   const ejerciciosHoy: EjercicioHoyData[] = (diaHoy?.ejercicios ?? [])
@@ -266,7 +268,7 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
     { rutina, fechaInicio, diaHoyNombre, semanaNumero, esDescanso, ejerciciosHoy, semana, hechos, bienestarHoy, diaDelFecha },
     rachaInfo,
   ] = await Promise.all([
-    getDatosDia(profile.id, fecha, semanaOverride, diaOverride),
+    getDatosDia(profile.id, fecha, semanaOverride, diaOverride, hoyStr),
     getRachaYSemana(profile.id, hoyStr),
   ])
 
@@ -370,8 +372,8 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
         )}
       </div>
 
-      {/* Sueño — siempre visible */}
-      <BienestarCard registroHoy={bienestarHoy} fecha={fecha} />
+      {/* Sueño — siempre para HOY, sin importar qué día se está viendo */}
+      <BienestarCard registroHoy={bienestarHoy} fecha={hoyStr} />
 
       {/* Racha + semana — solo en vista de hoy */}
       {esHoy && !modoSemana && (() => {
