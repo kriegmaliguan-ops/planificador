@@ -50,6 +50,16 @@ async function getData(plantillaId: string) {
     .select('id, nombre, descripcion, duracion_minutos, video_url')
     .order('nombre') as { data: any[] | null }
 
+  const { data: bloquesRaw } = await supabase
+    .from('bloques_dia')
+    .select('id, nombre, ejercicios:bloque_ejercicios(id)')
+    .order('created_at', { ascending: false }) as { data: any[] | null }
+  const bloques = (bloquesRaw ?? []).map((b) => ({
+    id: b.id,
+    nombre: b.nombre,
+    cantEjercicios: (b.ejercicios ?? []).length,
+  }))
+
   const ejerciciosLib: EjercicioItem[] = ((ejerciciosResult.data as any[]) ?? []).map((ej) => ({
     id: ej.id,
     nombre: ej.nombre,
@@ -111,7 +121,7 @@ async function getData(plantillaId: string) {
     dias: diasBySemana,
   }
 
-  return { ejerciciosLib, rutinaData, calentamientos: calentamientos ?? [] }
+  return { ejerciciosLib, rutinaData, calentamientos: calentamientos ?? [], bloques }
 }
 
 interface Props {
@@ -123,7 +133,7 @@ export default async function PlantillaEditPage({ params }: Props) {
   const data = await getData(id)
   if (!data) notFound()
 
-  const { ejerciciosLib, rutinaData, calentamientos } = data
+  const { ejerciciosLib, rutinaData, calentamientos, bloques } = data
 
   return (
     <div className="flex h-full flex-col">
@@ -149,6 +159,7 @@ export default async function PlantillaEditPage({ params }: Props) {
         rutinaInicial={rutinaData}
         ejerciciosLib={ejerciciosLib}
         calentamientosDisponibles={calentamientos}
+        bloquesDisponibles={bloques}
         templateMode
       />
     </div>

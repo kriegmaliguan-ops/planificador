@@ -2,7 +2,7 @@
 
 import { Fragment, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck, CalendarDays, X, Trash2, MessageCircle, Send, Loader2, FileText, Flame, Clock, PlayCircle } from 'lucide-react'
+import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck, CalendarDays, X, Trash2, MessageCircle, Send, Loader2, FileText, Flame, Clock, PlayCircle, Layers, Save, Download } from 'lucide-react'
 import { DIAS_SEMANA, DIAS_LABELS, getWeekDates } from '@/lib/utils'
 import {
   crearRutina,
@@ -18,6 +18,7 @@ import {
 } from '@/app/(profe)/rutinas/[alumnoId]/actions'
 import { crearRutinaDesdePlantilla } from '@/app/(profe)/plantillas/actions'
 import { asignarCalentamientoADia } from '@/app/(profe)/calentamientos/actions'
+import { guardarDiaComoBloque, aplicarBloqueADia } from '@/app/(profe)/bloques/actions'
 import { EjercicioDiaRow } from './EjercicioDiaRow'
 import { AgregarEjercicioModal } from './AgregarEjercicioModal'
 import type { DiaSemana } from '@/lib/types/database'
@@ -37,6 +38,12 @@ export interface CalentamientoLib {
   video_url: string | null
 }
 
+export interface BloqueResumen {
+  id: string
+  nombre: string
+  cantEjercicios: number
+}
+
 interface RutinaBuilderProps {
   alumnoId: string
   alumnoNombre: string
@@ -45,6 +52,7 @@ interface RutinaBuilderProps {
   templateMode?: boolean
   plantillasDisponibles?: PlantillaResumen[]
   calentamientosDisponibles?: CalentamientoLib[]
+  bloquesDisponibles?: BloqueResumen[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -441,6 +449,7 @@ export function RutinaBuilder({
   templateMode = false,
   plantillasDisponibles = [],
   calentamientosDisponibles = [],
+  bloquesDisponibles = [],
 }: RutinaBuilderProps) {
   const [rutina, setRutina] = useState<RutinaData | null>(rutinaInicial)
   const [semanaActiva, setSemanaActiva] = useState<number>(rutinaInicial?.semanas[0] ?? 1)
@@ -452,6 +461,9 @@ export function RutinaBuilder({
   const [fechaTemp, setFechaTemp] = useState(rutina?.fecha_inicio ?? '')
   const [copiarAbierto, setCopiarAbierto] = useState(false)
   const [copiarSemanaAbierto, setCopiarSemanaAbierto] = useState(false)
+  const [guardarBloqueOpen, setGuardarBloqueOpen] = useState(false)
+  const [cargarBloqueOpen, setCargarBloqueOpen] = useState(false)
+  const [aplicarPlantillaOpen, setAplicarPlantillaOpen] = useState(false)
   const [confirmarBorrarSemana, setConfirmarBorrarSemana] = useState<number | null>(null)
   const [, startTransition] = useTransition()
 
@@ -749,6 +761,16 @@ export function RutinaBuilder({
                 Activa
               </span>
               <EnviarMensajeBtn alumnoId={alumnoId} alumnoNombre={alumnoNombre} />
+              {plantillasDisponibles.length > 0 && (
+                <button
+                  onClick={() => setAplicarPlantillaOpen(true)}
+                  className="ml-1 flex items-center gap-1 rounded-lg bg-violet-50 px-2 py-1 text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors"
+                  title="Reemplazar con plantilla"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Plantilla
+                </button>
+              )}
             </>
           )}
         </div>
@@ -1072,15 +1094,37 @@ export function RutinaBuilder({
             </div>
           )}
 
-          {/* Botón agregar (solo si no es descanso) */}
+          {/* Botones agregar / bloques (solo si no es descanso) */}
           {!diaData.esDescanso && (
-            <button
-              onClick={() => setAgregarOpen(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-3 text-sm font-medium text-slate-500 transition-colors hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600"
-            >
-              <Plus className="h-4 w-4" />
-              Agregar ejercicio
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={() => setAgregarOpen(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-3 text-sm font-medium text-slate-500 transition-colors hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600"
+              >
+                <Plus className="h-4 w-4" />
+                Agregar ejercicio
+              </button>
+              <div className="flex gap-2">
+                {bloquesDisponibles.length > 0 && diaData.id && (
+                  <button
+                    onClick={() => setCargarBloqueOpen(true)}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 py-2.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 transition-colors"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Cargar bloque
+                  </button>
+                )}
+                {diaData.id && diaData.ejercicios.length > 0 && (
+                  <button
+                    onClick={() => setGuardarBloqueOpen(true)}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    Guardar día como bloque
+                  </button>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -1097,6 +1141,330 @@ export function RutinaBuilder({
         ejerciciosLib={ejerciciosLib}
         onAgregado={handleEjercicioAgregado}
       />
+
+      {/* Modal: Guardar día como bloque */}
+      {guardarBloqueOpen && diaData.id && (
+        <GuardarComoBloqueModal
+          diaId={diaData.id}
+          onClose={() => setGuardarBloqueOpen(false)}
+          onGuardado={() => { setGuardarBloqueOpen(false); router.refresh() }}
+        />
+      )}
+
+      {/* Modal: Cargar bloque al día */}
+      {cargarBloqueOpen && (
+        <CargarBloqueModal
+          rutinaId={rutina.id}
+          diaSemana={diaActivo}
+          semanaNumero={semanaActiva}
+          alumnoId={alumnoId}
+          bloques={bloquesDisponibles}
+          onClose={() => setCargarBloqueOpen(false)}
+          onAplicado={() => { setCargarBloqueOpen(false); router.refresh() }}
+        />
+      )}
+
+      {/* Modal: Aplicar plantilla (reemplazar rutina) */}
+      {aplicarPlantillaOpen && !templateMode && (
+        <AplicarPlantillaModal
+          plantillas={plantillasDisponibles}
+          alumnoId={alumnoId}
+          alumnoNombre={alumnoNombre}
+          onClose={() => setAplicarPlantillaOpen(false)}
+          onAplicada={() => { setAplicarPlantillaOpen(false); router.refresh() }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Modal: guardar día como bloque ────────────────────────────────────────────
+
+function GuardarComoBloqueModal({
+  diaId, onClose, onGuardado,
+}: {
+  diaId: string
+  onClose: () => void
+  onGuardado: () => void
+}) {
+  const [nombre, setNombre] = useState('')
+  const [descripcion, setDescripcion] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!nombre.trim()) return
+    setError(null)
+    startTransition(async () => {
+      const result = await guardarDiaComoBloque({
+        diaId,
+        nombre: nombre.trim(),
+        descripcion: descripcion.trim() || null,
+      })
+      if (result.error) { setError(result.error); return }
+      onGuardado()
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4" onClick={() => !isPending && onClose()}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100">
+              <Save className="h-4 w-4 text-violet-600" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900">Guardar día como bloque</h3>
+          </div>
+          <button onClick={onClose} disabled={isPending} className="rounded-lg p-1 text-slate-400">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mb-3 text-xs text-slate-500">
+          Vas a guardar este día como un bloque reutilizable. Podrás aplicarlo a otros días con un click.
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            autoFocus
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            required
+            placeholder="Ej: Pecho y tríceps"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          />
+          <textarea
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            rows={2}
+            placeholder="Descripción opcional"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none"
+          />
+          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+          <div className="flex gap-2">
+            <button type="button" onClick={onClose} disabled={isPending} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Cancelar
+            </button>
+            <button type="submit" disabled={isPending || !nombre.trim()} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50">
+              {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Guardar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ── Modal: cargar bloque a un día ─────────────────────────────────────────────
+
+function CargarBloqueModal({
+  rutinaId, diaSemana, semanaNumero, alumnoId, bloques, onClose, onAplicado,
+}: {
+  rutinaId: string
+  diaSemana: DiaSemana
+  semanaNumero: number
+  alumnoId: string
+  bloques: BloqueResumen[]
+  onClose: () => void
+  onAplicado: () => void
+}) {
+  const [selectedId, setSelectedId] = useState<string>('')
+  const [modo, setModo] = useState<'append' | 'replace'>('append')
+  const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!selectedId) return
+    setError(null)
+    startTransition(async () => {
+      const result = await aplicarBloqueADia({
+        bloqueId: selectedId,
+        rutinaId,
+        diaSemana,
+        semanaNumero,
+        alumnoId,
+        modo,
+      })
+      if (result.error) { setError(result.error); return }
+      onAplicado()
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4" onClick={() => !isPending && onClose()}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100">
+              <Download className="h-4 w-4 text-violet-600" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900">Cargar bloque</h3>
+          </div>
+          <button onClick={onClose} disabled={isPending} className="rounded-lg p-1 text-slate-400">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Elegí un bloque</label>
+            <select
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+              required
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            >
+              <option value="">— Seleccionar bloque —</option>
+              {bloques.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.nombre} ({b.cantEjercicios} ejercicio{b.cantEjercicios === 1 ? '' : 's'})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">¿Cómo aplicar?</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setModo('append')}
+                className={`rounded-xl border-2 px-3 py-2 text-xs font-semibold transition-colors ${
+                  modo === 'append' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600'
+                }`}
+              >
+                Agregar al día
+                <p className="mt-0.5 text-[10px] font-normal opacity-70">Suma los ejercicios al final</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setModo('replace')}
+                className={`rounded-xl border-2 px-3 py-2 text-xs font-semibold transition-colors ${
+                  modo === 'replace' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600'
+                }`}
+              >
+                Reemplazar
+                <p className="mt-0.5 text-[10px] font-normal opacity-70">Borra y pone solo este bloque</p>
+              </button>
+            </div>
+          </div>
+          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={onClose} disabled={isPending} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Cancelar
+            </button>
+            <button type="submit" disabled={isPending || !selectedId} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50">
+              {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Aplicar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ── Modal: aplicar plantilla a la rutina ──────────────────────────────────────
+
+function AplicarPlantillaModal({
+  plantillas, alumnoId, alumnoNombre, onClose, onAplicada,
+}: {
+  plantillas: PlantillaResumen[]
+  alumnoId: string
+  alumnoNombre: string
+  onClose: () => void
+  onAplicada: () => void
+}) {
+  const [plantillaId, setPlantillaId] = useState<string>('')
+  const [nombre, setNombre] = useState('')
+  const [fechaInicio, setFechaInicio] = useState<string>(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
+  const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!plantillaId || !nombre.trim()) return
+    setError(null)
+    startTransition(async () => {
+      const result = await crearRutinaDesdePlantilla({
+        plantillaId,
+        alumnoId,
+        nombre: nombre.trim(),
+        fechaInicio: fechaInicio || null,
+        mensajeProfe: null,
+      })
+      if (result.error) { setError(result.error); return }
+      onAplicada()
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4" onClick={() => !isPending && onClose()}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-start justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">Aplicar plantilla a {alumnoNombre}</h3>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Se va a crear una rutina nueva desde la plantilla. La rutina actual queda inactiva (su historial se mantiene).
+            </p>
+          </div>
+          <button onClick={onClose} disabled={isPending} className="rounded-lg p-1 text-slate-400 shrink-0">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Plantilla</label>
+            <select
+              value={plantillaId}
+              onChange={(e) => {
+                setPlantillaId(e.target.value)
+                const p = plantillas.find((x) => x.id === e.target.value)
+                if (p && !nombre) setNombre(p.nombre)
+              }}
+              required
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            >
+              <option value="">— Seleccionar plantilla —</option>
+              {plantillas.map((p) => (
+                <option key={p.id} value={p.id}>{p.nombre}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Nombre de la nueva rutina</label>
+            <input
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              required
+              placeholder="Ej: Hipertrofia — Marzo"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Fecha de inicio</label>
+            <input
+              type="date"
+              value={fechaInicio}
+              onChange={(e) => setFechaInicio(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={onClose} disabled={isPending} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              Cancelar
+            </button>
+            <button type="submit" disabled={isPending || !plantillaId || !nombre.trim()} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50">
+              {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Aplicar plantilla
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

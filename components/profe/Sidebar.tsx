@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { href: '/dashboard',      label: 'Dashboard',       icon: LayoutDashboard },
   { href: '/alumnos',        label: 'Alumnos',          icon: Users           },
   { href: '/plantillas',     label: 'Plantillas',       icon: FileText        },
+  { href: '/bloques',        label: 'Bloques',          icon: Layers          },
   { href: '/ejercicios',     label: 'Ejercicios',       icon: BookOpen        },
   { href: '/calentamientos', label: 'Calentamientos',   icon: Flame           },
   { href: '/grupos',         label: 'Grupos',           icon: Layers          },
