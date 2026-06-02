@@ -2,7 +2,7 @@
 
 import { Fragment, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck, CalendarDays, X, Trash2, MessageCircle, Send, Loader2, FileText } from 'lucide-react'
+import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck, CalendarDays, X, Trash2, MessageCircle, Send, Loader2, FileText, Flame, Clock, PlayCircle } from 'lucide-react'
 import { DIAS_SEMANA, DIAS_LABELS, getWeekDates } from '@/lib/utils'
 import {
   crearRutina,
@@ -17,6 +17,7 @@ import {
   enviarMensajeAlumno,
 } from '@/app/(profe)/rutinas/[alumnoId]/actions'
 import { crearRutinaDesdePlantilla } from '@/app/(profe)/plantillas/actions'
+import { asignarCalentamientoADia } from '@/app/(profe)/calentamientos/actions'
 import { EjercicioDiaRow } from './EjercicioDiaRow'
 import { AgregarEjercicioModal } from './AgregarEjercicioModal'
 import type { DiaSemana } from '@/lib/types/database'
@@ -28,6 +29,14 @@ interface PlantillaResumen {
   nombre: string
 }
 
+export interface CalentamientoLib {
+  id: string
+  nombre: string
+  descripcion: string | null
+  duracion_minutos: number | null
+  video_url: string | null
+}
+
 interface RutinaBuilderProps {
   alumnoId: string
   alumnoNombre: string
@@ -35,6 +44,7 @@ interface RutinaBuilderProps {
   ejerciciosLib: EjercicioItem[]
   templateMode?: boolean
   plantillasDisponibles?: PlantillaResumen[]
+  calentamientosDisponibles?: CalentamientoLib[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -46,7 +56,7 @@ function getMes(semana: number): number {
 function initWeekDias(): Record<DiaSemana, EstadoDia> {
   const d = {} as Record<DiaSemana, EstadoDia>
   for (const dia of DIAS_SEMANA) {
-    d[dia] = { id: null, nombre: '', esDescanso: false, ejercicios: [] }
+    d[dia] = { id: null, nombre: '', esDescanso: false, calentamientoId: null, ejercicios: [] }
   }
   return d
 }
@@ -233,6 +243,91 @@ function CrearRutinaForm({
   )
 }
 
+// ── Selector de calentamiento por día ─────────────────────────────────────────
+
+function CalentamientoSelector({
+  diaId,
+  calentamientoId,
+  calentamientos,
+  alumnoId,
+  onChange,
+}: {
+  diaId: string
+  calentamientoId: string | null
+  calentamientos: CalentamientoLib[]
+  alumnoId: string
+  onChange: (id: string | null) => void
+}) {
+  const [isPending, startTransition] = useTransition()
+  const cal = calentamientos.find((c) => c.id === calentamientoId) ?? null
+
+  function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const newId = e.target.value || null
+    onChange(newId)
+    startTransition(async () => {
+      await asignarCalentamientoADia({
+        diaId,
+        calentamientoId: newId,
+        alumnoId: alumnoId || diaId,
+      })
+    })
+  }
+
+  return (
+    <div className="mb-3 rounded-2xl border border-orange-200 bg-orange-50/50 p-3">
+      <div className="flex items-center gap-2 mb-2">
+        <Flame className="h-4 w-4 text-orange-500" />
+        <span className="text-sm font-semibold text-slate-700">Calentamiento</span>
+        {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin text-orange-500" />}
+      </div>
+
+      {calentamientos.length === 0 ? (
+        <p className="text-xs text-slate-500 italic">
+          Todavía no hay calentamientos. Agregalos desde{' '}
+          <a href="/calentamientos" className="text-blue-600 underline">/calentamientos</a>.
+        </p>
+      ) : (
+        <>
+          <select
+            value={calentamientoId ?? ''}
+            onChange={handleChange}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          >
+            <option value="">— Sin calentamiento —</option>
+            {calentamientos.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre}{c.duracion_minutos ? ` (${c.duracion_minutos} min)` : ''}
+              </option>
+            ))}
+          </select>
+
+          {cal && (
+            <div className="mt-2 flex items-center gap-3 text-xs text-slate-600">
+              {cal.duracion_minutos != null && (
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {cal.duracion_minutos} min
+                </span>
+              )}
+              {cal.video_url && (
+                <a
+                  href={cal.video_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-blue-600 hover:text-blue-500"
+                >
+                  <PlayCircle className="h-3 w-3" />
+                  Ver video
+                </a>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 // ── Botón enviar mensaje al alumno ────────────────────────────────────────────
 
 function EnviarMensajeBtn({ alumnoId, alumnoNombre }: { alumnoId: string; alumnoNombre: string }) {
@@ -345,6 +440,7 @@ export function RutinaBuilder({
   ejerciciosLib,
   templateMode = false,
   plantillasDisponibles = [],
+  calentamientosDisponibles = [],
 }: RutinaBuilderProps) {
   const [rutina, setRutina] = useState<RutinaData | null>(rutinaInicial)
   const [semanaActiva, setSemanaActiva] = useState<number>(rutinaInicial?.semanas[0] ?? 1)
@@ -910,6 +1006,26 @@ export function RutinaBuilder({
               </button>
             </div>
           </div>
+
+          {/* Selector de calentamiento (solo si no es descanso) */}
+          {!diaData.esDescanso && diaData.id && (
+            <CalentamientoSelector
+              diaId={diaData.id}
+              calentamientoId={diaData.calentamientoId}
+              calentamientos={calentamientosDisponibles}
+              alumnoId={alumnoId}
+              onChange={(id) => {
+                setRutina((prev) => {
+                  if (!prev) return prev
+                  const dias = { ...prev.dias }
+                  const week = { ...dias[semanaActiva] }
+                  week[diaActivo] = { ...week[diaActivo], calentamientoId: id }
+                  dias[semanaActiva] = week
+                  return { ...prev, dias }
+                })
+              }}
+            />
+          )}
 
           {/* Contenido: descanso o ejercicios */}
           {diaData.esDescanso ? (

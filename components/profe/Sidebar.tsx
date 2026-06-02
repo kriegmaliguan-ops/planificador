@@ -14,16 +14,18 @@ import {
   X,
   UserCircle,
   FileText,
+  Flame,
 } from 'lucide-react'
 import { logout } from '@/app/(auth)/login/actions'
 import type { Profile } from '@/lib/types/database'
 
 const NAV_ITEMS = [
-  { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-  { href: '/alumnos',    label: 'Alumnos',     icon: Users           },
-  { href: '/plantillas', label: 'Plantillas',  icon: FileText        },
-  { href: '/ejercicios', label: 'Ejercicios',  icon: BookOpen        },
-  { href: '/grupos',     label: 'Grupos',      icon: Layers          },
+  { href: '/dashboard',      label: 'Dashboard',       icon: LayoutDashboard },
+  { href: '/alumnos',        label: 'Alumnos',          icon: Users           },
+  { href: '/plantillas',     label: 'Plantillas',       icon: FileText        },
+  { href: '/ejercicios',     label: 'Ejercicios',       icon: BookOpen        },
+  { href: '/calentamientos', label: 'Calentamientos',   icon: Flame           },
+  { href: '/grupos',         label: 'Grupos',           icon: Layers          },
 ]
 
 interface SidebarProps {

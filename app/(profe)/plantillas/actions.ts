@@ -86,7 +86,7 @@ export async function crearRutinaDesdePlantilla(args: {
     .select(`
       id, is_template,
       dias:rutina_dias(
-        id, dia_semana, semana_numero, nombre, es_descanso, orden,
+        id, dia_semana, semana_numero, nombre, es_descanso, orden, calentamiento_id,
         ejercicios:rutina_ejercicios(
           ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas, rpe_objetivo
         )
@@ -133,6 +133,7 @@ export async function crearRutinaDesdePlantilla(args: {
       nombre: d.nombre ?? null,
       es_descanso: d.es_descanso ?? false,
       orden: d.orden ?? 0,
+      calentamiento_id: d.calentamiento_id ?? null,
     }))
     const { data: nuevosDias, error: errDias } = await (admin.from('rutina_dias') as any)
       .insert(diasPayload)

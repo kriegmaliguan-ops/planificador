@@ -294,13 +294,15 @@ export async function copiarDia(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'No autenticado.' }
 
-  const { data: ejercicios } = await supabase
-    .from('rutina_ejercicios')
-    .select('ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas, rpe_objetivo')
-    .eq('dia_id', diaOrigenId)
-    .order('orden') as { data: any[] | null }
+  // Cargar el día origen (incluyendo calentamiento)
+  const { data: origen } = await supabase
+    .from('rutina_dias')
+    .select('id, calentamiento_id, ejercicios:rutina_ejercicios(ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas, rpe_objetivo)')
+    .eq('id', diaOrigenId)
+    .maybeSingle() as { data: any | null }
 
-  if (!ejercicios?.length) return { error: 'El día origen no tiene ejercicios.' }
+  const ejercicios = (origen?.ejercicios ?? []) as any[]
+  if (!ejercicios.length) return { error: 'El día origen no tiene ejercicios.' }
 
   const { data: diaDestino } = await supabase
     .from('rutina_dias')
@@ -314,10 +316,20 @@ export async function copiarDia(
   if (diaDestino) {
     destinoId = diaDestino.id
     await supabase.from('rutina_ejercicios').delete().eq('dia_id', destinoId)
+    // Actualizar también el calentamiento del destino
+    await (supabase.from('rutina_dias') as any)
+      .update({ calentamiento_id: origen?.calentamiento_id ?? null })
+      .eq('id', destinoId)
   } else {
     const { data: nuevoDia, error } = typed<{ id: string }>(
       await (supabase.from('rutina_dias') as any)
-        .insert({ rutina_id: rutinaId, dia_semana: diaDestinoSemana, orden: 0, semana_numero: semanaNumero })
+        .insert({
+          rutina_id: rutinaId,
+          dia_semana: diaDestinoSemana,
+          orden: 0,
+          semana_numero: semanaNumero,
+          calentamiento_id: origen?.calentamiento_id ?? null,
+        })
         .select('id')
         .single()
     )
@@ -378,7 +390,7 @@ export async function copiarSemana(
   // Obtener todos los días de la semana origen con sus ejercicios
   const { data: diasOrigen } = await supabase
     .from('rutina_dias')
-    .select('id, dia_semana, nombre, es_descanso, orden, rutina_ejercicios(ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas, rpe_objetivo)')
+    .select('id, dia_semana, nombre, es_descanso, orden, calentamiento_id, rutina_ejercicios(ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas, rpe_objetivo)')
     .eq('rutina_id', rutinaId)
     .eq('semana_numero', semanaOrigen) as { data: any[] | null }
 
@@ -400,7 +412,11 @@ export async function copiarSemana(
       destinoId = diaExistente.id
       await supabase.from('rutina_ejercicios').delete().eq('dia_id', destinoId)
       await (supabase.from('rutina_dias') as any)
-        .update({ nombre: diaOrigen.nombre, es_descanso: diaOrigen.es_descanso })
+        .update({
+          nombre: diaOrigen.nombre,
+          es_descanso: diaOrigen.es_descanso,
+          calentamiento_id: diaOrigen.calentamiento_id ?? null,
+        })
         .eq('id', destinoId)
     } else {
       const { data: nuevoDia, error: diaErr } = typed<{ id: string }>(
@@ -412,6 +428,7 @@ export async function copiarSemana(
             es_descanso: diaOrigen.es_descanso,
             orden: diaOrigen.orden,
             semana_numero: semanaDestino,
+            calentamiento_id: diaOrigen.calentamiento_id ?? null,
           })
           .select('id')
           .single()

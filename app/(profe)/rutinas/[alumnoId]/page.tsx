@@ -28,6 +28,7 @@ export interface EstadoDia {
   id: string | null       // rutina_dia.id (null = no existe en DB aún)
   nombre: string
   esDescanso: boolean
+  calentamientoId: string | null
   ejercicios: EjercicioEnDia[]
 }
 
@@ -49,7 +50,7 @@ const DIAS_ORDEN: DiaSemana[] = [
 function initWeek(): Record<DiaSemana, EstadoDia> {
   const d = {} as Record<DiaSemana, EstadoDia>
   for (const dia of DIAS_ORDEN) {
-    d[dia] = { id: null, nombre: '', esDescanso: false, ejercicios: [] }
+    d[dia] = { id: null, nombre: '', esDescanso: false, calentamientoId: null, ejercicios: [] }
   }
   return d
 }
@@ -57,7 +58,7 @@ function initWeek(): Record<DiaSemana, EstadoDia> {
 async function getData(alumnoId: string) {
   const supabase = await createClient()
 
-  const [alumnoResult, ejerciciosResult, rutinaResult, plantillasResult] = await Promise.all([
+  const [alumnoResult, ejerciciosResult, rutinaResult, plantillasResult, calentamientosResult] = await Promise.all([
     supabase.from('profiles').select('id, nombre, apellido, suspendido').eq('id', alumnoId).single(),
     supabase
       .from('ejercicios')
@@ -68,7 +69,7 @@ async function getData(alumnoId: string) {
       .select(`
         id, nombre, activa, fecha_inicio,
         dias:rutina_dias(
-          id, dia_semana, nombre, orden, es_descanso, semana_numero,
+          id, dia_semana, nombre, orden, es_descanso, semana_numero, calentamiento_id,
           ejercicios:rutina_ejercicios(
             id, ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas, rpe_objetivo
           )
@@ -82,6 +83,10 @@ async function getData(alumnoId: string) {
       .select('id, nombre')
       .eq('is_template', true)
       .order('created_at', { ascending: false }) as unknown as Promise<{ data: { id: string; nombre: string }[] | null }>,
+    supabase
+      .from('calentamientos')
+      .select('id, nombre, descripcion, duracion_minutos, video_url')
+      .order('nombre') as unknown as Promise<{ data: any[] | null }>,
   ])
 
   const alumno = typed<Pick<Profile, 'id' | 'nombre' | 'apellido' | 'suspendido'>>(alumnoResult).data
@@ -157,6 +162,7 @@ async function getData(alumnoId: string) {
         id: dia.id,
         nombre: dia.nombre ?? '',
         esDescanso: dia.es_descanso ?? false,
+        calentamientoId: dia.calentamiento_id ?? null,
         ejercicios,
       }
     }
@@ -175,7 +181,10 @@ async function getData(alumnoId: string) {
   }
 
   const plantillas = (plantillasResult.data ?? []) as { id: string; nombre: string }[]
-  return { alumno, ejerciciosLib, rutinaData, plantillas }
+  const calentamientos = (calentamientosResult.data ?? []) as Array<{
+    id: string; nombre: string; descripcion: string | null; duracion_minutos: number | null; video_url: string | null
+  }>
+  return { alumno, ejerciciosLib, rutinaData, plantillas, calentamientos }
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -190,7 +199,7 @@ export default async function RutinaBuilderPage({ params }: Props) {
 
   if (!data) notFound()
 
-  const { alumno, ejerciciosLib, rutinaData, plantillas } = data
+  const { alumno, ejerciciosLib, rutinaData, plantillas, calentamientos } = data
 
   if (alumno.suspendido === true) {
     return (
@@ -244,6 +253,7 @@ export default async function RutinaBuilderPage({ params }: Props) {
         rutinaInicial={rutinaData}
         ejerciciosLib={ejerciciosLib}
         plantillasDisponibles={plantillas}
+        calentamientosDisponibles={calentamientos}
       />
     </div>
   )

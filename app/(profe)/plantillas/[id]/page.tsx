@@ -16,7 +16,7 @@ const DIAS_ORDEN: DiaSemana[] = [
 function initWeek(): Record<DiaSemana, EstadoDia> {
   const d = {} as Record<DiaSemana, EstadoDia>
   for (const dia of DIAS_ORDEN) {
-    d[dia] = { id: null, nombre: '', esDescanso: false, ejercicios: [] }
+    d[dia] = { id: null, nombre: '', esDescanso: false, calentamientoId: null, ejercicios: [] }
   }
   return d
 }
@@ -34,7 +34,7 @@ async function getData(plantillaId: string) {
       .select(`
         id, nombre, activa, fecha_inicio, is_template,
         dias:rutina_dias(
-          id, dia_semana, nombre, orden, es_descanso, semana_numero,
+          id, dia_semana, nombre, orden, es_descanso, semana_numero, calentamiento_id,
           ejercicios:rutina_ejercicios(
             id, ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas, rpe_objetivo
           )
@@ -44,6 +44,11 @@ async function getData(plantillaId: string) {
       .eq('is_template', true)
       .maybeSingle(),
   ])
+
+  const { data: calentamientos } = await supabase
+    .from('calentamientos')
+    .select('id, nombre, descripcion, duracion_minutos, video_url')
+    .order('nombre') as { data: any[] | null }
 
   const ejerciciosLib: EjercicioItem[] = ((ejerciciosResult.data as any[]) ?? []).map((ej) => ({
     id: ej.id,
@@ -89,6 +94,7 @@ async function getData(plantillaId: string) {
       id: dia.id,
       nombre: dia.nombre ?? '',
       esDescanso: dia.es_descanso ?? false,
+      calentamientoId: dia.calentamiento_id ?? null,
       ejercicios,
     }
   }
@@ -105,7 +111,7 @@ async function getData(plantillaId: string) {
     dias: diasBySemana,
   }
 
-  return { ejerciciosLib, rutinaData }
+  return { ejerciciosLib, rutinaData, calentamientos: calentamientos ?? [] }
 }
 
 interface Props {
@@ -117,7 +123,7 @@ export default async function PlantillaEditPage({ params }: Props) {
   const data = await getData(id)
   if (!data) notFound()
 
-  const { ejerciciosLib, rutinaData } = data
+  const { ejerciciosLib, rutinaData, calentamientos } = data
 
   return (
     <div className="flex h-full flex-col">
@@ -142,6 +148,7 @@ export default async function PlantillaEditPage({ params }: Props) {
         alumnoNombre=""
         rutinaInicial={rutinaData}
         ejerciciosLib={ejerciciosLib}
+        calentamientosDisponibles={calentamientos}
         templateMode
       />
     </div>

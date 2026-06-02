@@ -9,6 +9,7 @@ import { EjercicioHoyCard } from '@/components/alumno/EjercicioHoyCard'
 import { BienestarCard } from '@/components/alumno/BienestarCard'
 import { DateNav } from '@/components/alumno/DateNav'
 import { RegistrarTodoBtn } from '@/components/alumno/RegistrarTodoBtn'
+import { CalentamientoCard } from '@/components/alumno/CalentamientoCard'
 import type { Profile, GrupoMuscular, DiaSemana } from '@/lib/types/database'
 import type { EjercicioHoyData } from '@/components/alumno/EjercicioHoyCard'
 
@@ -107,7 +108,8 @@ async function getDatosDia(
     .select(`
       id, nombre, fecha_inicio,
       dias:rutina_dias(
-        id, dia_semana, semana_numero, nombre, es_descanso,
+        id, dia_semana, semana_numero, nombre, es_descanso, calentamiento_id,
+        calentamiento:calentamientos(id, nombre, descripcion, duracion_minutos, video_url),
         ejercicios:rutina_ejercicios(
           id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas, rpe_objetivo,
           ejercicio:ejercicios(id, nombre, video_url, grupos:ejercicio_grupos(grupo:grupos_musculares(id, nombre)))
@@ -118,7 +120,7 @@ async function getDatosDia(
     .eq('activa', true)
     .maybeSingle() as { data: any | null }
 
-  if (!rawRutina) return { rutina: null, fechaInicio: null, ejerciciosHoy: [], semana: [], bienestarHoy: null }
+  if (!rawRutina) return { rutina: null, fechaInicio: null, ejerciciosHoy: [], semana: [], bienestarHoy: null, calentamientoHoy: null }
 
   // Seleccionar el día: por semana/dia override o por día de la fecha
   let diaHoy: any
@@ -217,6 +219,14 @@ async function getDatosDia(
     }
   })
 
+  // Calentamiento del día (puede venir como array u objeto según Supabase join)
+  const rawCal = diaHoy?.calentamiento
+  const calentamientoHoy = rawCal
+    ? Array.isArray(rawCal)
+      ? (rawCal[0] ?? null)
+      : rawCal
+    : null
+
   return {
     rutina: { id: rawRutina.id, nombre: rawRutina.nombre },
     fechaInicio: (rawRutina.fecha_inicio as string | null) ?? null,
@@ -227,6 +237,7 @@ async function getDatosDia(
     semana,
     hechos: Object.keys(registrosDia).length,
     bienestarHoy: bienestarRaw ?? null,
+    calentamientoHoy,
     diaDelFecha,
   }
 }
@@ -263,7 +274,7 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
   const esHoy = fecha === hoyStr
 
   const [
-    { rutina, fechaInicio, diaHoyNombre, semanaNumero, esDescanso, ejerciciosHoy, semana, hechos, bienestarHoy, diaDelFecha },
+    { rutina, fechaInicio, diaHoyNombre, semanaNumero, esDescanso, ejerciciosHoy, semana, hechos, bienestarHoy, calentamientoHoy, diaDelFecha },
     rachaInfo,
   ] = await Promise.all([
     getDatosDia(profile.id, fecha, semanaOverride, diaOverride),
@@ -450,6 +461,9 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
         </div>
       ) : (
         <>
+          {/* Calentamiento del día (si está asignado) */}
+          {calentamientoHoy && <CalentamientoCard calentamiento={calentamientoHoy} />}
+
           {ejerciciosHoy.map((ej, i) => (
             <EjercicioHoyCard
               key={ej.rutinaEjercicioId}
