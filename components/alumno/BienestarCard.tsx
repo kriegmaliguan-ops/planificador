@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Moon } from 'lucide-react'
-import { registrarBienestar } from '@/app/(alumno)/rutina/actions'
+import { offlineWrite } from '@/lib/offline-write'
 import { DESCANSO_CONFIG } from '@/lib/utils'
 
 interface Props {
@@ -33,12 +33,12 @@ export function BienestarCard({ registroHoy, fecha, hoy }: Props) {
     if (descanso === '') return
     setError(null)
     startTransition(async () => {
-      const result = await registrarBienestar({
+      const result = await offlineWrite('registrarBienestar', {
         descanso: Number(descanso),
         notas: notas.trim() || null,
         fecha,
       })
-      if (result.error) setError(result.error)
+      if (!result.ok) setError(result.error ?? 'Error al guardar')
       else setGuardado(true)
     })
   }

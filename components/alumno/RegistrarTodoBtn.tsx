@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { CheckCircle2, Loader2 } from 'lucide-react'
-import { registrarTodoDia } from '@/app/(alumno)/rutina/actions'
+import { offlineWrite } from '@/lib/offline-write'
 
 interface EjercicioInfo {
   rutinaEjercicioId: string
@@ -28,7 +28,7 @@ export function RegistrarTodoBtn({ ejercicios, fecha }: RegistrarTodoBtnProps) {
   function handleClick() {
     setMensaje(null)
     startTransition(async () => {
-      const result = await registrarTodoDia({
+      const result = await offlineWrite('registrarTodoDia', {
         ejercicios: ejercicios.map((e) => ({
           rutinaEjercicioId: e.rutinaEjercicioId,
           series: e.series,
@@ -36,12 +36,12 @@ export function RegistrarTodoBtn({ ejercicios, fecha }: RegistrarTodoBtnProps) {
         })),
         fecha,
       })
-      if (result.error) {
-        setMensaje(result.error)
-      } else if (result.registrados === 0) {
-        setMensaje('Ya están todos registrados.')
+      if (!result.ok) {
+        setMensaje(result.error ?? 'Error al guardar')
+      } else if (result.queued) {
+        setMensaje('Guardado offline. Se sincronizará al volver la conexión.')
       } else {
-        setMensaje(`${result.registrados} ejercicio${result.registrados === 1 ? '' : 's'} registrado${result.registrados === 1 ? '' : 's'}.`)
+        setMensaje(`${pendientes.length} ejercicio${pendientes.length === 1 ? '' : 's'} registrado${pendientes.length === 1 ? '' : 's'}.`)
       }
     })
   }

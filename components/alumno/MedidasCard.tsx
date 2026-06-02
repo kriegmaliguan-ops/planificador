@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Ruler, ChevronDown, ChevronUp } from 'lucide-react'
-import { registrarMedidas } from '@/app/(alumno)/rutina/actions'
+import { offlineWrite } from '@/lib/offline-write'
 
 interface Props {
   registroHoy: MedidaHoy | null
@@ -59,7 +59,7 @@ export function MedidasCard({ registroHoy }: Props) {
   function handleGuardar() {
     setError(null)
     startTransition(async () => {
-      const result = await registrarMedidas({
+      const result = await offlineWrite('registrarMedidas', {
         cintura_cm: parseNum(valores.cintura_cm),
         pecho_cm: parseNum(valores.pecho_cm),
         brazo_cm: parseNum(valores.brazo_cm),
@@ -69,7 +69,7 @@ export function MedidasCard({ registroHoy }: Props) {
         cuello_cm: parseNum(valores.cuello_cm),
         notas: notas.trim() || null,
       })
-      if (result.error) setError(result.error)
+      if (!result.ok) setError(result.error ?? 'Error al guardar')
       else setGuardado(true)
     })
   }

@@ -1,21 +1,126 @@
 // Service Worker para Planificador Pro
-// Maneja: instalación PWA + Web Push notifications
+// Maneja: instalación PWA + Web Push notifications + cache offline
 
-const VERSION = 'v1'
+const CACHE_NAME = 'planificador-v3'
+const APP_SHELL = [
+  '/',
+  '/rutina',
+  '/mi-rutina',
+  '/progreso',
+  '/perfil',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/manifest.json',
+]
 
 self.addEventListener('install', (event) => {
-  // Activar inmediatamente (no esperar refrescar pestañas viejas)
+  // Activar inmediatamente
   self.skipWaiting()
+  // Pre-cachear app shell (no esperamos a que termine para activar)
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.addAll(APP_SHELL).catch(() => {/* algunos pueden fallar, no aborta */})
+    )
+  )
 })
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim())
+  event.waitUntil(
+    (async () => {
+      // Borrar caches viejos
+      const keys = await caches.keys()
+      await Promise.all(
+        keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+      )
+      await self.clients.claim()
+    })()
+  )
 })
 
-// Fetch passthrough — no cacheamos nada por ahora (offline en item 8)
+// ── Fetch handler ───────────────────────────────────────────────────────────
+
 self.addEventListener('fetch', (event) => {
-  // No interceptar — el browser maneja todo normal
+  const req = event.request
+  const url = new URL(req.url)
+
+  // Solo nuestro origen
+  if (url.origin !== location.origin) return
+  // Solo GET (POST = server actions, las dejamos pasar)
+  if (req.method !== 'GET') return
+  // No interceptar API routes ni rutas de auth/login
+  if (url.pathname.startsWith('/api/')) return
+  if (url.pathname.startsWith('/auth/')) return
+  if (url.pathname === '/login') return
+  // No cachear el SW mismo
+  if (url.pathname === '/sw.js') return
+
+  // Static assets de Next: cache-first (son immutable por hash)
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(cacheFirst(req))
+    return
+  }
+
+  // Imágenes y assets de public/
+  if (/\.(png|jpg|jpeg|svg|webp|ico|woff2?)$/i.test(url.pathname)) {
+    event.respondWith(cacheFirst(req))
+    return
+  }
+
+  // HTML pages: network-first con fallback a cache
+  const accept = req.headers.get('accept') || ''
+  if (accept.includes('text/html') || req.mode === 'navigate') {
+    event.respondWith(networkFirstHTML(req))
+    return
+  }
+
+  // Otros GET: network-first
+  event.respondWith(networkFirst(req))
 })
+
+async function cacheFirst(request) {
+  const cache = await caches.open(CACHE_NAME)
+  const cached = await cache.match(request)
+  if (cached) return cached
+  try {
+    const response = await fetch(request)
+    if (response && response.ok) cache.put(request, response.clone())
+    return response
+  } catch (err) {
+    return new Response('', { status: 503 })
+  }
+}
+
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE_NAME)
+  try {
+    const response = await fetch(request)
+    if (response && response.ok) cache.put(request, response.clone())
+    return response
+  } catch (err) {
+    const cached = await cache.match(request)
+    if (cached) return cached
+    return new Response('', { status: 503 })
+  }
+}
+
+async function networkFirstHTML(request) {
+  const cache = await caches.open(CACHE_NAME)
+  try {
+    const response = await fetch(request)
+    if (response && response.ok) cache.put(request, response.clone())
+    return response
+  } catch (err) {
+    const cached = await cache.match(request)
+    if (cached) return cached
+    // Fallback al shell de /rutina
+    const fallback = await cache.match('/rutina')
+    if (fallback) return fallback
+    return new Response('<h1>Sin conexión</h1>', {
+      status: 503,
+      headers: { 'Content-Type': 'text/html' },
+    })
+  }
+}
 
 // ── Push notifications ──────────────────────────────────────────────────────
 
@@ -50,17 +155,21 @@ self.addEventListener('notificationclick', (event) => {
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
-        // Si hay una ventana abierta, enfocarla
         for (const client of clientList) {
           if ('focus' in client) {
-            if (client.navigate) {
-              client.navigate(targetUrl).catch(() => {})
-            }
+            if (client.navigate) client.navigate(targetUrl).catch(() => {})
             return client.focus()
           }
         }
-        // Si no, abrir una nueva
         return self.clients.openWindow(targetUrl)
       })
   )
+})
+
+// ── Mensajes desde la app para forzar refresh del SW ────────────────────────
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting()
+  }
 })

@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react'
 import { CheckCircle2, ChevronDown, ChevronUp, Clock, PlayCircle, Trash2 } from 'lucide-react'
 import { grupoColor, rpeButtonColor, RPE_CONFIG } from '@/lib/utils'
-import { registrarProgreso, eliminarProgreso } from '@/app/(alumno)/rutina/actions'
+import { eliminarProgreso } from '@/app/(alumno)/rutina/actions'
+import { offlineWrite } from '@/lib/offline-write'
 import type { GrupoMuscular } from '@/lib/types/database'
 
 export interface EjercicioHoyData {
@@ -132,7 +133,7 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
       : repsSync.join(',')
 
     startTransition(async () => {
-      const result = await registrarProgreso({
+      const result = await offlineWrite('registrarProgreso', {
         rutinaEjercicioId: ejercicio.rutinaEjercicioId,
         seriesCompletadas: numSeries,
         repeticionesRealizadas,
@@ -142,8 +143,8 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
         notas: form.notas || null,
         fecha,
       })
-      if (result.error) {
-        setError(result.error)
+      if (!result.ok) {
+        setError(result.error ?? 'Error al guardar')
       } else {
         setGuardado(true)
         setExpandido(false)

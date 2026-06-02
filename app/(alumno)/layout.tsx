@@ -7,6 +7,7 @@ import { NavBottom } from '@/components/alumno/NavBottom'
 import { NotifBell } from '@/components/alumno/NotifBell'
 import { InstallPwaBtn } from '@/components/alumno/InstallPwaBtn'
 import { EnablePushBtn } from '@/components/alumno/EnablePushBtn'
+import { OfflineSync } from '@/components/alumno/OfflineSync'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { logout } from '@/app/(auth)/login/actions'
 import type { Profile } from '@/lib/types/database'
@@ -106,6 +107,9 @@ export default async function AlumnoLayout({
 
       {/* Banner activar push notifications */}
       <EnablePushBtn />
+
+      {/* Sync offline */}
+      <OfflineSync />
     </div>
   )
 }

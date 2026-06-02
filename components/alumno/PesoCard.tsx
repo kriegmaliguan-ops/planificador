@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Scale } from 'lucide-react'
-import { registrarPeso } from '@/app/(alumno)/rutina/actions'
+import { offlineWrite } from '@/lib/offline-write'
 
 interface Props {
   registroHoy: { peso_kg: number; notas: string | null } | null
@@ -21,8 +21,8 @@ export function PesoCard({ registroHoy, fecha }: Props) {
     if (isNaN(kg) || kg <= 0) return
     setError(null)
     startTransition(async () => {
-      const result = await registrarPeso({ pesoKg: kg, notas: notas.trim() || null, fecha })
-      if (result.error) setError(result.error)
+      const result = await offlineWrite('registrarPeso', { pesoKg: kg, notas: notas.trim() || null, fecha })
+      if (!result.ok) setError(result.error ?? 'Error al guardar')
       else setGuardado(true)
     })
   }
