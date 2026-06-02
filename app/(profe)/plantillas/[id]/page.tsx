@@ -36,7 +36,7 @@ async function getData(plantillaId: string) {
         dias:rutina_dias(
           id, dia_semana, nombre, orden, es_descanso, semana_numero, calentamiento_id,
           ejercicios:rutina_ejercicios(
-            id, ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas, rpe_objetivo
+            id, ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, duracion_segundos, notas, rpe_objetivo
           )
         )
       `)
@@ -95,6 +95,7 @@ async function getData(plantillaId: string) {
           repeticiones: re.repeticiones,
           peso_objetivo: re.peso_objetivo,
           descanso_segundos: re.descanso_segundos,
+          duracion_segundos: re.duracion_segundos ?? null,
           notas: re.notas,
           rpe_objetivo: re.rpe_objetivo ?? null,
         }

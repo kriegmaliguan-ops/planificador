@@ -25,28 +25,24 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
     repeticiones: ejercicio.repeticiones,
     peso_objetivo: ejercicio.peso_objetivo ?? '',
     descanso_segundos: ejercicio.descanso_segundos ?? 90,
+    duracion_segundos: ejercicio.duracion_segundos ?? '',
     notas: ejercicio.notas ?? '',
     rpe_objetivo: ejercicio.rpe_objetivo ?? '',
   })
 
   function handleBlur() {
+    const payload = {
+      series: Number(local.series) || 3,
+      repeticiones: local.repeticiones || '10',
+      peso_objetivo: local.peso_objetivo !== '' ? Number(local.peso_objetivo) : null,
+      descanso_segundos: Number(local.descanso_segundos) || null,
+      duracion_segundos: local.duracion_segundos !== '' ? Number(local.duracion_segundos) : null,
+      notas: local.notas || null,
+      rpe_objetivo: local.rpe_objetivo !== '' ? Number(local.rpe_objetivo) : null,
+    }
     startTransition(async () => {
-      await actualizarEjercicioRutina(ejercicio.id, alumnoId, {
-        series: Number(local.series) || 3,
-        repeticiones: local.repeticiones || '10',
-        peso_objetivo: local.peso_objetivo !== '' ? Number(local.peso_objetivo) : null,
-        descanso_segundos: Number(local.descanso_segundos) || null,
-        notas: local.notas || null,
-        rpe_objetivo: local.rpe_objetivo !== '' ? Number(local.rpe_objetivo) : null,
-      })
-      onUpdate(ejercicio.id, {
-        series: Number(local.series) || 3,
-        repeticiones: local.repeticiones || '10',
-        peso_objetivo: local.peso_objetivo !== '' ? Number(local.peso_objetivo) : null,
-        descanso_segundos: Number(local.descanso_segundos) || null,
-        notas: local.notas || null,
-        rpe_objetivo: local.rpe_objetivo !== '' ? Number(local.rpe_objetivo) : null,
-      })
+      await actualizarEjercicioRutina(ejercicio.id, alumnoId, payload)
+      onUpdate(ejercicio.id, payload)
     })
   }
 
@@ -102,6 +98,20 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
               onChange={(e) => setLocal((p) => ({ ...p, repeticiones: e.target.value }))}
               onBlur={handleBlur}
               placeholder="10"
+              className={`${inputClass} w-16`}
+            />
+          </div>
+          <div className="text-center">
+            <p className="mb-1 text-xs text-slate-400">Tiempo (s)</p>
+            <input
+              type="number"
+              min={0}
+              step={5}
+              value={local.duracion_segundos}
+              onChange={(e) => setLocal((p) => ({ ...p, duracion_segundos: e.target.value as any }))}
+              onBlur={handleBlur}
+              placeholder="—"
+              title="Tiempo en segundos por serie (para cardio o isométricos). Si lo cargás, ignora 'Reps'."
               className={`${inputClass} w-16`}
             />
           </div>
@@ -201,6 +211,7 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
             {[
               { label: 'Series', key: 'series', type: 'number' },
               { label: 'Reps', key: 'repeticiones', type: 'text' },
+              { label: 'Tiempo (s)', key: 'duracion_segundos', type: 'number' },
               { label: 'Peso (kg)', key: 'peso_objetivo', type: 'number' },
               { label: 'Descanso (s)', key: 'descanso_segundos', type: 'number' },
             ].map(({ label, key, type }) => (

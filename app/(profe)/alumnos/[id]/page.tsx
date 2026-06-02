@@ -19,7 +19,7 @@ async function getAlumnoData(id: string) {
   const [profileResult, rutinasResult] = await Promise.allSettled([
     supabase
       .from('profiles')
-      .select('id, email, nombre, apellido, avatar_url, role, peso, altura, fecha_nacimiento, objetivo, notas_profe, suspendido, password_changed, created_at, updated_at')
+      .select('id, email, nombre, apellido, avatar_url, role, peso, altura, fecha_nacimiento, objetivo, notas_profe, instagram, whatsapp, suspendido, password_changed, created_at, updated_at')
       .eq('id', id)
       .eq('role', 'alumno')
       .single(),

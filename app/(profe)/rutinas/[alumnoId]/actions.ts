@@ -124,6 +124,7 @@ export async function agregarEjercicioARutina({
   repeticiones,
   peso_objetivo,
   descanso_segundos,
+  duracion_segundos,
 }: {
   rutinaId: string
   diaId: string | null
@@ -135,6 +136,7 @@ export async function agregarEjercicioARutina({
   repeticiones: string
   peso_objetivo: number | null
   descanso_segundos: number
+  duracion_segundos?: number | null
 }): Promise<{ error?: string; diaId?: string; ejercicioRutinaId?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -171,6 +173,7 @@ export async function agregarEjercicioARutina({
         repeticiones,
         peso_objetivo,
         descanso_segundos,
+        duracion_segundos: duracion_segundos ?? null,
       })
       .select('id')
       .single()
@@ -209,6 +212,7 @@ export async function actualizarEjercicioRutina(
     repeticiones: string
     peso_objetivo: number | null
     descanso_segundos: number | null
+    duracion_segundos: number | null
     notas: string | null
     rpe_objetivo: number | null
   }
@@ -297,7 +301,7 @@ export async function copiarDia(
   // Cargar el día origen (incluyendo calentamiento)
   const { data: origen } = await supabase
     .from('rutina_dias')
-    .select('id, calentamiento_id, ejercicios:rutina_ejercicios(ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas, rpe_objetivo)')
+    .select('id, calentamiento_id, ejercicios:rutina_ejercicios(ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, duracion_segundos, notas, rpe_objetivo)')
     .eq('id', diaOrigenId)
     .maybeSingle() as { data: any | null }
 
@@ -390,7 +394,7 @@ export async function copiarSemana(
   // Obtener todos los días de la semana origen con sus ejercicios
   const { data: diasOrigen } = await supabase
     .from('rutina_dias')
-    .select('id, dia_semana, nombre, es_descanso, orden, calentamiento_id, rutina_ejercicios(ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas, rpe_objetivo)')
+    .select('id, dia_semana, nombre, es_descanso, orden, calentamiento_id, rutina_ejercicios(ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, duracion_segundos, notas, rpe_objetivo)')
     .eq('rutina_id', rutinaId)
     .eq('semana_numero', semanaOrigen) as { data: any[] | null }
 

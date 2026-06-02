@@ -16,6 +16,7 @@ export interface EjercicioHoyData {
   repeticiones: string
   peso_objetivo: number | null
   descanso_segundos: number | null
+  duracion_segundos: number | null
   notas: string | null
   rpe_objetivo: number | null
   ultimoPeso: number | null
@@ -27,6 +28,15 @@ export interface EjercicioHoyData {
     pesos_por_serie?: (number | null)[] | null
     rpe: number | null
   } | null
+}
+
+/** Formatea segundos como "30s" o "2m 30s" o "5m" para mostrar al alumno */
+export function formatDuracion(segundos: number): string {
+  if (segundos < 60) return `${segundos}s`
+  const mins = Math.floor(segundos / 60)
+  const restoSeg = segundos % 60
+  if (restoSeg === 0) return `${mins} min`
+  return `${mins}m ${restoSeg}s`
 }
 
 interface EjercicioHoyCardProps {
@@ -207,7 +217,9 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
           )}
           <div className="flex flex-col items-end gap-1">
             <span className="text-sm font-semibold text-slate-700">
-              {ejercicio.series}×{ejercicio.repeticiones}
+              {ejercicio.series}×{ejercicio.duracion_segundos
+                ? formatDuracion(ejercicio.duracion_segundos)
+                : ejercicio.repeticiones}
               {ejercicio.peso_objetivo ? ` · ${ejercicio.peso_objetivo}kg` : ''}
               {ejercicio.rpe_objetivo ? ` · RPE ${ejercicio.rpe_objetivo}` : ''}
             </span>

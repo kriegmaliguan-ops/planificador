@@ -111,7 +111,7 @@ async function getDatosDia(
         id, dia_semana, semana_numero, nombre, es_descanso, calentamiento_id,
         calentamiento:calentamientos(id, nombre, descripcion, duracion_minutos, video_url),
         ejercicios:rutina_ejercicios(
-          id, orden, series, repeticiones, peso_objetivo, descanso_segundos, notas, rpe_objetivo,
+          id, orden, series, repeticiones, peso_objetivo, descanso_segundos, duracion_segundos, notas, rpe_objetivo,
           ejercicio:ejercicios(id, nombre, video_url, grupos:ejercicio_grupos(grupo:grupos_musculares(id, nombre)))
         )
       )
@@ -202,6 +202,7 @@ async function getDatosDia(
       repeticiones: re.repeticiones,
       peso_objetivo: re.peso_objetivo,
       descanso_segundos: re.descanso_segundos,
+      duracion_segundos: re.duracion_segundos ?? null,
       notas: re.notas,
       rpe_objetivo: re.rpe_objetivo ?? null,
       ultimoPeso: ultimosRegistros[re.id]?.peso ?? null,
