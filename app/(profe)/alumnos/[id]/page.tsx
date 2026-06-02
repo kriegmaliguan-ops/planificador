@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Mail, CalendarDays, Dumbbell, ChevronRight, TrendingUp, User, KeyRound, StickyNote } from 'lucide-react'
+import { ArrowLeft, Mail, CalendarDays, Dumbbell, ChevronRight, TrendingUp, User, KeyRound, StickyNote, Phone, AtSign } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { typed, typedList } from '@/lib/supabase/types-helper'
 import { EliminarAlumnoBtn } from '@/components/alumnos/EliminarAlumnoBtn'
@@ -110,7 +110,31 @@ export default async function AlumnoPerfilPage({ params }: Props) {
             </div>
           </div>
         </div>
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+          {profile.whatsapp && (
+            <a
+              href={`https://wa.me/${profile.whatsapp}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-400 transition-colors"
+              title="Abrir chat de WhatsApp"
+            >
+              <Phone className="h-4 w-4" />
+              WhatsApp
+            </a>
+          )}
+          {profile.instagram && (
+            <a
+              href={`https://instagram.com/${profile.instagram}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 px-3 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+              title="Abrir Instagram"
+            >
+              <AtSign className="h-4 w-4" />
+              Instagram
+            </a>
+          )}
           <Link
             href={`/rutinas/${id}`}
             className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 transition-colors"

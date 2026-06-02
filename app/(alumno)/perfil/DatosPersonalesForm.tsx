@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { User, CheckCircle2 } from 'lucide-react'
+import { User, CheckCircle2, Phone, AtSign } from 'lucide-react'
 import { actualizarDatosAlumno } from './actions'
 import type { Profile } from '@/lib/types/database'
 
 interface Props {
-  profile: Pick<Profile, 'nombre' | 'apellido' | 'peso' | 'altura' | 'fecha_nacimiento' | 'objetivo'>
+  profile: Pick<Profile, 'nombre' | 'apellido' | 'peso' | 'altura' | 'fecha_nacimiento' | 'objetivo' | 'instagram' | 'whatsapp'>
 }
 
 export function DatosPersonalesForm({ profile }: Props) {
@@ -21,6 +21,8 @@ export function DatosPersonalesForm({ profile }: Props) {
     altura: profile.altura?.toString() ?? '',
     fecha_nacimiento: profile.fecha_nacimiento ?? '',
     objetivo: profile.objetivo ?? '',
+    instagram: profile.instagram ?? '',
+    whatsapp: profile.whatsapp ?? '',
   })
 
   function set(key: keyof typeof form, value: string) {
@@ -44,6 +46,8 @@ export function DatosPersonalesForm({ profile }: Props) {
         altura: form.altura ? parseFloat(form.altura) : null,
         fecha_nacimiento: form.fecha_nacimiento || null,
         objetivo: form.objetivo || null,
+        instagram: form.instagram || null,
+        whatsapp: form.whatsapp || null,
       })
       if (result.error) {
         setError(result.error)
@@ -141,6 +145,46 @@ export function DatosPersonalesForm({ profile }: Props) {
             rows={3}
             className={`${inputClass} resize-none`}
           />
+        </div>
+
+        {/* Contacto */}
+        <div className="border-t border-slate-100 pt-4 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Contacto (para que tu profe te escriba)
+          </p>
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+              <Phone className="h-3.5 w-3.5 text-slate-400" />
+              WhatsApp
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">+</span>
+              <input
+                type="tel"
+                value={form.whatsapp}
+                onChange={(e) => set('whatsapp', e.target.value)}
+                placeholder="5491134567890"
+                className={`${inputClass} pl-6`}
+              />
+            </div>
+            <p className="text-[10px] text-slate-400">Con código de país (sin +).</p>
+          </div>
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+              <AtSign className="h-3.5 w-3.5 text-slate-400" />
+              Instagram
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">@</span>
+              <input
+                type="text"
+                value={form.instagram}
+                onChange={(e) => set('instagram', e.target.value)}
+                placeholder="usuario"
+                className={`${inputClass} pl-7`}
+              />
+            </div>
+          </div>
         </div>
 
         {error && (

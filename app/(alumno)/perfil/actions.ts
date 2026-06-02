@@ -10,6 +10,23 @@ interface DatosPersonales {
   altura: number | null
   fecha_nacimiento: string | null
   objetivo: string | null
+  instagram?: string | null
+  whatsapp?: string | null
+}
+
+function normalizeInstagram(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const v = raw.trim()
+  if (!v) return null
+  const sinUrl = v.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/\/$/, '')
+  return sinUrl.replace(/^@/, '')
+}
+
+function normalizeWhatsapp(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const v = raw.trim()
+  if (!v) return null
+  return v.replace(/[^\d]/g, '') || null
 }
 
 export async function actualizarDatosAlumno(
@@ -26,6 +43,8 @@ export async function actualizarDatosAlumno(
     altura: datos.altura,
     fecha_nacimiento: datos.fecha_nacimiento || null,
     objetivo: datos.objetivo?.trim() || null,
+    instagram: normalizeInstagram(datos.instagram),
+    whatsapp: normalizeWhatsapp(datos.whatsapp),
   }).eq('id', user.id)
 
   if (error) return { error: 'No se pudieron guardar los datos.' }

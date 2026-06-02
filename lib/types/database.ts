@@ -23,6 +23,8 @@ export interface Profile {
   fecha_nacimiento: string | null
   objetivo: string | null
   notas_profe: string | null
+  instagram: string | null
+  whatsapp: string | null
   suspendido: boolean | null
   password_changed: boolean | null
   created_at: string

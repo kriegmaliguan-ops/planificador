@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Save, User, Target, StickyNote } from 'lucide-react'
+import { ArrowLeft, Save, User, Target, StickyNote, Phone, AtSign } from 'lucide-react'
 import { actualizarPerfilAlumno } from './actions'
 
 interface PerfilFormProps {
@@ -16,6 +16,8 @@ interface PerfilFormProps {
     fecha_nacimiento: string | null
     objetivo: string | null
     notas_profe: string | null
+    instagram: string | null
+    whatsapp: string | null
   }
 }
 
@@ -32,6 +34,8 @@ export function PerfilForm({ alumno }: PerfilFormProps) {
     fecha_nacimiento: alumno.fecha_nacimiento ?? '',
     objetivo: alumno.objetivo ?? '',
     notas_profe: alumno.notas_profe ?? '',
+    instagram: alumno.instagram ?? '',
+    whatsapp: alumno.whatsapp ?? '',
   })
 
   function handleChange(key: keyof typeof form, value: string) {
@@ -52,6 +56,8 @@ export function PerfilForm({ alumno }: PerfilFormProps) {
         fecha_nacimiento: form.fecha_nacimiento || null,
         objetivo: form.objetivo || null,
         notas_profe: form.notas_profe || null,
+        instagram: form.instagram || null,
+        whatsapp: form.whatsapp || null,
       })
       if (result.error) setError(result.error)
       else setSaved(true)
@@ -141,6 +147,48 @@ export function PerfilForm({ alumno }: PerfilFormProps) {
                 />
               </Field>
             </div>
+          </div>
+        </section>
+
+        {/* Contacto */}
+        <section className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-slate-100 px-6 py-4">
+            <Phone className="h-4 w-4 text-slate-400" />
+            <h2 className="font-semibold text-slate-900">Contacto</h2>
+            <span className="text-xs text-slate-400">(para hablarle directo)</span>
+          </div>
+          <div className="px-6 py-5 space-y-4">
+            <Field label="WhatsApp">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">+</span>
+                <input
+                  type="tel"
+                  value={form.whatsapp}
+                  onChange={(e) => handleChange('whatsapp', e.target.value)}
+                  placeholder="5491134567890 (con código de país, sin +)"
+                  className="input pl-6"
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Solo números con código de país. Ej: 549 + área + número.
+              </p>
+            </Field>
+
+            <Field label="Instagram">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">@</span>
+                <input
+                  type="text"
+                  value={form.instagram}
+                  onChange={(e) => handleChange('instagram', e.target.value)}
+                  placeholder="usuario"
+                  className="input pl-7"
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Sin @. Podés pegar la URL completa también.
+              </p>
+            </Field>
           </div>
         </section>
 

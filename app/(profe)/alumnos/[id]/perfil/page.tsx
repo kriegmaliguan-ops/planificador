@@ -12,7 +12,7 @@ export default async function PerfilAlumnoPage({ params }: Props) {
 
   const { data: alumno } = await supabase
     .from('profiles')
-    .select('id, email, nombre, apellido, peso, altura, fecha_nacimiento, objetivo, notas_profe')
+    .select('id, email, nombre, apellido, peso, altura, fecha_nacimiento, objetivo, notas_profe, instagram, whatsapp')
     .eq('id', id)
     .eq('role', 'alumno')
     .single() as {
@@ -20,6 +20,7 @@ export default async function PerfilAlumnoPage({ params }: Props) {
         id: string; email: string; nombre: string; apellido: string | null
         peso: number | null; altura: number | null; fecha_nacimiento: string | null
         objetivo: string | null; notas_profe: string | null
+        instagram: string | null; whatsapp: string | null
       } | null
     }
 
