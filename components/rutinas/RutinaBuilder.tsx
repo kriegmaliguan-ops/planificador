@@ -1105,7 +1105,7 @@ export function RutinaBuilder({
                 Agregar ejercicio
               </button>
               <div className="flex gap-2">
-                {bloquesDisponibles.length > 0 && diaData.id && (
+                {bloquesDisponibles.length > 0 && (
                   <button
                     onClick={() => setCargarBloqueOpen(true)}
                     className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 py-2.5 text-xs font-semibold text-violet-700 hover:bg-violet-100 transition-colors"
@@ -1382,11 +1382,12 @@ function AplicarPlantillaModal({
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   })
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!plantillaId || !nombre.trim()) return
+    if (!plantillaId || !nombre.trim() || success || isPending) return
     setError(null)
     startTransition(async () => {
       const result = await crearRutinaDesdePlantilla({
@@ -1397,7 +1398,9 @@ function AplicarPlantillaModal({
         mensajeProfe: null,
       })
       if (result.error) { setError(result.error); return }
-      onAplicada()
+      setSuccess(true)
+      // Mostrar feedback 1.5s antes de cerrar y refrescar
+      setTimeout(() => onAplicada(), 1500)
     })
   }
 
@@ -1454,13 +1457,20 @@ function AplicarPlantillaModal({
             />
           </div>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+          {success && (
+            <p className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+              <Check className="h-4 w-4 shrink-0" />
+              ¡Plantilla aplicada! Recargando la rutina...
+            </p>
+          )}
           <div className="flex gap-2 pt-2">
-            <button type="button" onClick={onClose} disabled={isPending} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            <button type="button" onClick={onClose} disabled={isPending || success} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
               Cancelar
             </button>
-            <button type="submit" disabled={isPending || !plantillaId || !nombre.trim()} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50">
+            <button type="submit" disabled={isPending || success || !plantillaId || !nombre.trim()} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold text-white disabled:opacity-50 ${success ? 'bg-emerald-600' : 'bg-blue-600 hover:bg-blue-500'}`}>
               {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Aplicar plantilla
+              {success ? <Check className="h-4 w-4" /> : null}
+              {success ? '¡Aplicada!' : isPending ? 'Aplicando...' : 'Aplicar plantilla'}
             </button>
           </div>
         </form>

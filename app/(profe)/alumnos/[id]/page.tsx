@@ -7,6 +7,7 @@ import { EliminarAlumnoBtn } from '@/components/alumnos/EliminarAlumnoBtn'
 import { SuspenderAlumnoBtn } from '@/components/alumnos/SuspenderAlumnoBtn'
 import { ResetPasswordBtn } from '@/components/alumnos/ResetPasswordBtn'
 import { EnviarNotifBtn } from '@/components/alumnos/EnviarNotifBtn'
+import { RutinaActions } from '@/components/alumnos/RutinaActions'
 import type { Profile, Rutina } from '@/lib/types/database'
 
 interface Props {
@@ -234,17 +235,21 @@ export default async function AlumnoPerfilPage({ params }: Props) {
         ) : (
           <ul className="divide-y divide-slate-100">
             {rutinas.map((rutina) => (
-              <li key={rutina.id}>
+              <li key={rutina.id} className="flex items-center gap-3 px-4 sm:px-6 py-3 hover:bg-slate-50 transition-colors group">
                 <Link
-                  href={`/rutinas/${id}?rutina=${rutina.id}`}
-                  className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors group"
+                  href={rutina.activa ? `/rutinas/${id}` : `/rutinas/${id}?rutina=${rutina.id}`}
+                  className="flex min-w-0 flex-1 items-center gap-2"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-slate-900">{rutina.nombre}</p>
-                      {rutina.activa && (
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-slate-900 truncate">{rutina.nombre}</p>
+                      {rutina.activa ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 shrink-0">
                           Activa
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 shrink-0">
+                          Inactiva
                         </span>
                       )}
                     </div>
@@ -260,8 +265,13 @@ export default async function AlumnoPerfilPage({ params }: Props) {
                       </p>
                     )}
                   </div>
-                  <ChevronRight className="h-5 w-5 shrink-0 text-slate-300 group-hover:text-blue-500 transition-colors" />
                 </Link>
+                <RutinaActions
+                  rutinaId={rutina.id}
+                  alumnoId={id}
+                  esActiva={!!rutina.activa}
+                  nombre={rutina.nombre}
+                />
               </li>
             ))}
           </ul>

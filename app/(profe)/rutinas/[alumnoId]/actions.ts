@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { typed } from '@/lib/supabase/types-helper'
 import { crearNotificacion } from '@/lib/notificaciones'
 import type { DiaSemana } from '@/lib/types/database'
@@ -451,5 +452,93 @@ export async function copiarSemana(
   }
 
   revalidatePath(`/rutinas/${alumnoId}`)
+  return {}
+}
+
+// ── Activar una rutina (desactiva las otras del mismo alumno) ─────────────────
+
+export async function activarRutina(
+  rutinaId: string,
+  alumnoId: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+
+  // Verificar que sea profe
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single() as { data: { role: string } | null }
+  if (profile?.role !== 'profe') return { error: 'Sin permisos.' }
+
+  // Desactivar todas las del alumno
+  await (supabase.from('rutinas') as any)
+    .update({ activa: false })
+    .eq('alumno_id', alumnoId)
+
+  // Activar la elegida
+  const { error } = await (supabase.from('rutinas') as any)
+    .update({ activa: true })
+    .eq('id', rutinaId)
+    .eq('alumno_id', alumnoId)
+
+  if (error) return { error: 'Error al activar la rutina.' }
+
+  revalidatePath(`/alumnos/${alumnoId}`)
+  revalidatePath(`/rutinas/${alumnoId}`)
+  return {}
+}
+
+// ── Eliminar rutina completa ──────────────────────────────────────────────────
+// confirmarConRegistros: si la rutina tiene registros_progreso del alumno,
+// avisa al frontend para que el profe lo confirme explícitamente.
+
+export async function eliminarRutina(
+  rutinaId: string,
+  alumnoId: string,
+  confirmarConRegistros = false
+): Promise<{ error?: string; tieneRegistros?: number }> {
+  const supabase = await createClient()
+  const admin = createAdminClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+
+  // Verificar que sea profe
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single() as { data: { role: string } | null }
+  if (profile?.role !== 'profe') return { error: 'Sin permisos.' }
+
+  // Chequear si tiene registros asociados (vía rutina_dias → rutina_ejercicios → registros_progreso)
+  if (!confirmarConRegistros) {
+    const { data: dias } = await admin
+      .from('rutina_dias').select('id').eq('rutina_id', rutinaId) as { data: { id: string }[] | null }
+    const diaIds = (dias ?? []).map((d) => d.id)
+    if (diaIds.length > 0) {
+      const { data: ejs } = await admin
+        .from('rutina_ejercicios').select('id').in('dia_id', diaIds) as { data: { id: string }[] | null }
+      const ejIds = (ejs ?? []).map((e) => e.id)
+      if (ejIds.length > 0) {
+        const { count } = await admin
+          .from('registros_progreso')
+          .select('id', { count: 'exact', head: true })
+          .in('rutina_ejercicio_id', ejIds) as { count: number | null }
+        if (count && count > 0) {
+          return { tieneRegistros: count }
+        }
+      }
+    }
+  }
+
+  // Usar admin para asegurar el cascade delete (cascade borra rutina_dias →
+  // rutina_ejercicios → registros_progreso si confirmarConRegistros=true)
+  const { error } = await admin
+    .from('rutinas')
+    .delete()
+    .eq('id', rutinaId)
+    .eq('alumno_id', alumnoId)
+    .eq('is_template', false)
+
+  if (error) return { error: 'Error al eliminar la rutina.' }
+
+  revalidatePath(`/alumnos/${alumnoId}`)
   return {}
 }
