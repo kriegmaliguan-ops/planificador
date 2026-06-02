@@ -874,11 +874,6 @@ function RegistroRow({
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          {r.rpe !== null && (
-            <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${rpeColor(r.rpe)}`}>
-              RPE {r.rpe}
-            </span>
-          )}
           {(showEdit || showDelete) && (
             <>
               {showEdit && (
@@ -912,10 +907,17 @@ function RegistroRow({
         </div>
       </div>
 
-      <p className="mt-1.5 text-sm font-semibold text-slate-800">
-        {r.series ?? '?'} × {r.reps ?? '?'}
-        {r.peso !== null ? ` @ ${r.peso} kg` : ''}
-      </p>
+      <div className="mt-1.5 flex items-center flex-wrap gap-x-2 gap-y-1">
+        <p className="text-sm font-semibold text-slate-800">
+          {r.series ?? '?'} × {r.reps ?? '?'}
+          {r.peso !== null ? ` @ ${r.peso} kg` : ''}
+        </p>
+        {r.rpe !== null && (
+          <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${rpeColor(r.rpe)}`}>
+            RPE {r.rpe}
+          </span>
+        )}
+      </div>
       {r.notas && <p className="mt-0.5 text-xs text-slate-600 italic">"{r.notas}"</p>}
     </div>
   )
