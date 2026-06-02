@@ -25,6 +25,7 @@ const TIPO_ICON: Record<string, React.ElementType> = {
   bienvenida: UserPlus,
   plan_reactivado: PlayCircle,
   mensaje_profe: MessageCircle,
+  mensaje_alumno: MessageCircle,
 }
 
 function getIcon(tipo: string) {

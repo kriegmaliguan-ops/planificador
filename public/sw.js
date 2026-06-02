@@ -1,13 +1,10 @@
 // Service Worker para Planificador Pro
 // Maneja: instalación PWA + Web Push notifications + cache offline
 
-const CACHE_NAME = 'planificador-v3'
-const APP_SHELL = [
-  '/',
-  '/rutina',
-  '/mi-rutina',
-  '/progreso',
-  '/perfil',
+const CACHE_NAME = 'planificador-v4'
+// Solo pre-cacheamos assets estáticos (no rutas autenticadas — esas se
+// cachean on-visit cuando el usuario ya tiene sesión iniciada).
+const STATIC_ASSETS = [
   '/icon-192.png',
   '/icon-512.png',
   '/manifest.json',
@@ -16,10 +13,9 @@ const APP_SHELL = [
 self.addEventListener('install', (event) => {
   // Activar inmediatamente
   self.skipWaiting()
-  // Pre-cachear app shell (no esperamos a que termine para activar)
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
-      cache.addAll(APP_SHELL).catch(() => {/* algunos pueden fallar, no aborta */})
+      cache.addAll(STATIC_ASSETS).catch(() => {/* algunos pueden fallar, no aborta */})
     )
   )
 })
@@ -107,18 +103,29 @@ async function networkFirstHTML(request) {
   const cache = await caches.open(CACHE_NAME)
   try {
     const response = await fetch(request)
-    if (response && response.ok) cache.put(request, response.clone())
+    // Solo cacheamos respuestas exitosas y NO redirecciones (evita cachear /login redirects)
+    if (response && response.ok && response.status === 200 && !response.redirected) {
+      cache.put(request, response.clone())
+    }
     return response
   } catch (err) {
     const cached = await cache.match(request)
     if (cached) return cached
-    // Fallback al shell de /rutina
-    const fallback = await cache.match('/rutina')
-    if (fallback) return fallback
-    return new Response('<h1>Sin conexión</h1>', {
-      status: 503,
-      headers: { 'Content-Type': 'text/html' },
-    })
+    // Fallback: intentar cualquier página cacheada del alumno
+    const urls = ['/rutina', '/mi-rutina', '/progreso', '/perfil']
+    for (const u of urls) {
+      const fallback = await cache.match(u)
+      if (fallback) return fallback
+    }
+    return new Response(
+      '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sin conexión</title>' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<style>body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#0f172a;color:white;padding:20px;text-align:center}h1{margin-bottom:8px}p{color:#94a3b8;max-width:320px}</style>' +
+      '</head><body><div><h1>Sin conexión</h1>' +
+      '<p>Abrí la app al menos una vez con internet para que pueda funcionar offline después.</p>' +
+      '</div></body></html>',
+      { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+    )
   }
 }
 

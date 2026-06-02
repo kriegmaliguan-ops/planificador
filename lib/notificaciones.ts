@@ -6,6 +6,7 @@ import { enviarPushAUsuario } from '@/lib/push'
 const URLS_POR_TIPO: Record<string, string> = {
   rutina_nueva: '/rutina',
   mensaje_profe: '/rutina',
+  mensaje_alumno: '/dashboard',  // profe va a su dashboard (puede ver lista de alumnos)
   bienvenida: '/perfil',
   plan_reactivado: '/rutina',
 }

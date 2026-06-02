@@ -5,6 +5,7 @@ import { typed } from '@/lib/supabase/types-helper'
 import { logout } from '@/app/(auth)/login/actions'
 import { DatosPersonalesForm } from './DatosPersonalesForm'
 import { CambiarPasswordForm } from './CambiarPasswordForm'
+import { EnviarMensajeProfeBtn } from '@/components/alumno/EnviarMensajeProfeBtn'
 import type { Profile } from '@/lib/types/database'
 
 export default async function PerfilAlumnoPage() {
@@ -23,6 +24,9 @@ export default async function PerfilAlumnoPage() {
 
       {/* Datos personales */}
       <DatosPersonalesForm profile={profile} />
+
+      {/* Enviar mensaje al profe */}
+      <EnviarMensajeProfeBtn />
 
       {/* Cambiar contraseña */}
       <CambiarPasswordForm />
