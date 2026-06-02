@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useMemo } from 'react'
-import { Search, Check, Plus } from 'lucide-react'
+import { Search, Check, Plus, X } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { grupoColor } from '@/lib/utils'
@@ -9,6 +9,10 @@ import { agregarEjercicioARutina } from '@/app/(profe)/rutinas/[alumnoId]/action
 import type { DiaSemana } from '@/lib/types/database'
 import type { EjercicioItem } from '@/app/(profe)/ejercicios/page'
 import type { EjercicioEnDia, EstadoDia } from '@/app/(profe)/rutinas/[alumnoId]/page'
+
+function normalize(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
 
 interface AgregarEjercicioModalProps {
   open: boolean
@@ -35,16 +39,34 @@ export function AgregarEjercicioModal({
 }: AgregarEjercicioModalProps) {
   const [isPending, startTransition] = useTransition()
   const [search, setSearch] = useState('')
+  const [grupoFiltro, setGrupoFiltro] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [params, setParams] = useState({ series: 3, repeticiones: '10', peso: '', descanso: 90 })
   const [error, setError] = useState<string | null>(null)
 
   const yaEnDia = new Set(diaActual.ejercicios.map((e) => e.ejercicio_id))
 
-  const filtered = useMemo(
-    () => ejerciciosLib.filter((ej) => ej.nombre.toLowerCase().includes(search.toLowerCase())),
-    [ejerciciosLib, search]
-  )
+  // Lista de todos los grupos musculares disponibles (sacados de los ejercicios)
+  const todosGrupos = useMemo(() => {
+    const map = new Map<string, { id: string; nombre: string }>()
+    for (const ej of ejerciciosLib) {
+      for (const g of ej.grupos) map.set(g.id, { id: g.id, nombre: g.nombre })
+    }
+    return Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  }, [ejerciciosLib])
+
+  const filtered = useMemo(() => {
+    const term = normalize(search.trim())
+    return ejerciciosLib.filter((ej) => {
+      // Filtro por grupo
+      if (grupoFiltro && !ej.grupos.some((g) => g.id === grupoFiltro)) return false
+      // Filtro por texto: nombre del ejercicio o nombre de cualquier grupo muscular
+      if (!term) return true
+      if (normalize(ej.nombre).includes(term)) return true
+      if (ej.grupos.some((g) => normalize(g.nombre).includes(term))) return true
+      return false
+    })
+  }, [ejerciciosLib, search, grupoFiltro])
 
   const selectedItems = ejerciciosLib.filter((e) => selectedIds.has(e.id))
 
@@ -60,6 +82,7 @@ export function AgregarEjercicioModal({
 
   function handleClose() {
     setSearch('')
+    setGrupoFiltro(null)
     setSelectedIds(new Set())
     setParams({ series: 3, repeticiones: '10', peso: '', descanso: 90 })
     setError(null)
@@ -123,12 +146,60 @@ export function AgregarEjercicioModal({
           <input
             autoFocus
             type="text"
-            placeholder="Buscar ejercicio..."
+            placeholder="Buscar por ejercicio o grupo (pecho, cardio, glúteo...)"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-9 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
+
+        {/* Chips de grupos musculares */}
+        {todosGrupos.length > 0 && (
+          <div className="-mx-1 flex flex-wrap gap-1.5 px-1">
+            <button
+              type="button"
+              onClick={() => setGrupoFiltro(null)}
+              className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                grupoFiltro === null
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Todos
+              <span className={`ml-1.5 opacity-70 ${grupoFiltro === null ? '' : 'text-slate-400'}`}>
+                {ejerciciosLib.length}
+              </span>
+            </button>
+            {todosGrupos.map((g) => {
+              const isActive = grupoFiltro === g.id
+              const count = ejerciciosLib.filter((e) => e.grupos.some((x) => x.id === g.id)).length
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => setGrupoFiltro(isActive ? null : g.id)}
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    isActive
+                      ? `${grupoColor(g.nombre)} ring-2 ring-offset-1 ring-slate-400`
+                      : `${grupoColor(g.nombre)} opacity-70 hover:opacity-100`
+                  }`}
+                >
+                  {g.nombre}
+                  <span className="ml-1.5 opacity-70">{count}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {/* Contador de seleccionados */}
         {selectedIds.size > 0 && (
@@ -149,7 +220,18 @@ export function AgregarEjercicioModal({
         {/* Lista de ejercicios */}
         <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-100 divide-y divide-slate-100">
           {filtered.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-400">Sin resultados</p>
+            <div className="py-8 text-center">
+              <p className="text-sm text-slate-400">Sin resultados</p>
+              {(search || grupoFiltro) && (
+                <button
+                  type="button"
+                  onClick={() => { setSearch(''); setGrupoFiltro(null) }}
+                  className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-500"
+                >
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
           ) : (
             filtered.map((ej) => {
               const enDia = yaEnDia.has(ej.id)
