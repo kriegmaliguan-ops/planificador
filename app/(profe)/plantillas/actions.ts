@@ -88,7 +88,7 @@ export async function crearRutinaDesdePlantilla(args: {
       dias:rutina_dias(
         id, dia_semana, semana_numero, nombre, es_descanso, orden, calentamiento_id,
         ejercicios:rutina_ejercicios(
-          ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, duracion_segundos, notas, rpe_objetivo
+          ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, duracion_segundos, notas, rpe_objetivo, modalidad, agrupacion
         )
       )
     `)
@@ -169,6 +169,8 @@ export async function crearRutinaDesdePlantilla(args: {
           duracion_segundos: ej.duracion_segundos ?? null,
           notas: ej.notas ?? null,
           rpe_objetivo: ej.rpe_objetivo ?? null,
+          modalidad: ej.modalidad ?? 'normal',
+          agrupacion: ej.agrupacion ?? null,
         })
       }
     }

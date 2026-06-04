@@ -33,7 +33,7 @@ export async function guardarDiaComoBloque(args: {
   // Cargar ejercicios del día
   const { data: ejercicios } = await supabase
     .from('rutina_ejercicios')
-    .select('ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, duracion_segundos, notas, rpe_objetivo')
+    .select('ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, duracion_segundos, notas, rpe_objetivo, modalidad, agrupacion')
     .eq('dia_id', args.diaId)
     .order('orden') as { data: any[] | null }
 
@@ -67,6 +67,8 @@ export async function guardarDiaComoBloque(args: {
     duracion_segundos: e.duracion_segundos ?? null,
     notas: e.notas ?? null,
     rpe_objetivo: e.rpe_objetivo ?? null,
+    modalidad: e.modalidad ?? 'normal',
+    agrupacion: e.agrupacion ?? null,
   }))
 
   const { error: errEj } = await (admin.from('bloque_ejercicios') as any).insert(payload)
@@ -133,7 +135,7 @@ export async function aplicarBloqueADia(args: {
   // 1) Cargar ejercicios del bloque
   const { data: bloqueEjs } = await supabase
     .from('bloque_ejercicios')
-    .select('ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, duracion_segundos, notas, rpe_objetivo')
+    .select('ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, duracion_segundos, notas, rpe_objetivo, modalidad, agrupacion')
     .eq('bloque_id', args.bloqueId)
     .order('orden') as { data: any[] | null }
 
@@ -196,6 +198,8 @@ export async function aplicarBloqueADia(args: {
     duracion_segundos: e.duracion_segundos ?? null,
     notas: e.notas ?? null,
     rpe_objetivo: e.rpe_objetivo ?? null,
+    modalidad: e.modalidad ?? 'normal',
+    agrupacion: e.agrupacion ?? null,
   }))
 
   const { error } = await (admin.from('rutina_ejercicios') as any).insert(payload)

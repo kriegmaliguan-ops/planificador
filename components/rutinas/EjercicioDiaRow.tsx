@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Trash2, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { grupoColor } from '@/lib/utils'
 import { actualizarEjercicioRutina, removerEjercicioDeRutina } from '@/app/(profe)/rutinas/[alumnoId]/actions'
+import { MODALIDADES, type Modalidad, isAgrupada } from '@/lib/modalidades'
 import type { EjercicioEnDia } from '@/app/(profe)/rutinas/[alumnoId]/page'
 
 interface EjercicioDiaRowProps {
@@ -28,6 +29,8 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
     duracion_segundos: ejercicio.duracion_segundos ?? '',
     notas: ejercicio.notas ?? '',
     rpe_objetivo: ejercicio.rpe_objetivo ?? '',
+    modalidad: ejercicio.modalidad ?? 'normal',
+    agrupacion: ejercicio.agrupacion ?? '',
   })
 
   function handleBlur() {
@@ -39,6 +42,8 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
       duracion_segundos: local.duracion_segundos !== '' ? Number(local.duracion_segundos) : null,
       notas: local.notas || null,
       rpe_objetivo: local.rpe_objetivo !== '' ? Number(local.rpe_objetivo) : null,
+      modalidad: local.modalidad || 'normal',
+      agrupacion: local.agrupacion || null,
     }
     startTransition(async () => {
       await actualizarEjercicioRutina(ejercicio.id, alumnoId, payload)
@@ -243,6 +248,51 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
           </div>
         </div>
       )}
+
+      {/* Modalidad — siempre visible si no es normal o si está expandido */}
+      <div className="border-t border-slate-100 px-4 py-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">Modalidad</span>
+          <select
+            value={local.modalidad}
+            onChange={(e) => {
+              const nuevaMod = e.target.value as Modalidad
+              setLocal((p) => ({
+                ...p,
+                modalidad: nuevaMod,
+                // Si la nueva modalidad no requiere agrupación, limpiar el campo
+                agrupacion: isAgrupada(nuevaMod) ? p.agrupacion : '',
+              }))
+            }}
+            onBlur={handleBlur}
+            className="rounded-md border border-slate-200 px-2 py-0.5 text-xs text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          >
+            {(Object.keys(MODALIDADES) as Modalidad[]).map((m) => (
+              <option key={m} value={m}>
+                {MODALIDADES[m].emoji ? `${MODALIDADES[m].emoji} ` : ''}{MODALIDADES[m].label}
+              </option>
+            ))}
+          </select>
+          {isAgrupada(local.modalidad as Modalidad) && (
+            <>
+              <span className="text-[10px] text-slate-400">grupo:</span>
+              <input
+                type="text"
+                maxLength={3}
+                value={local.agrupacion}
+                onChange={(e) => setLocal((p) => ({ ...p, agrupacion: e.target.value.toUpperCase() }))}
+                onBlur={handleBlur}
+                placeholder="A"
+                title="Letra/número para agrupar con otro ejercicio (mismo valor = misma biserie/triserie)"
+                className="w-10 rounded-md border border-slate-200 px-1.5 py-0.5 text-xs text-center font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              />
+              <span className="text-[10px] text-slate-400 italic">
+                {local.agrupacion ? `Pone ${local.agrupacion} en otro ejercicio para agruparlos` : 'Asigná una letra'}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* Notas — siempre visible */}
       <div className="border-t border-slate-100 px-4 py-2">

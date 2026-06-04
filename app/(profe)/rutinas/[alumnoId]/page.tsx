@@ -10,6 +10,10 @@ import type { EjercicioItem } from '@/app/(profe)/ejercicios/page'
 
 // ── Tipos para el builder ────────────────────────────────────────────────────
 
+export type Modalidad =
+  | 'normal' | 'biserie' | 'superserie' | 'triserie'
+  | 'drop_set' | 'rest_pause' | 'piramidal' | 'isometrica' | 'tempo'
+
 export interface EjercicioEnDia {
   id: string              // rutina_ejercicio.id
   ejercicio_id: string
@@ -23,6 +27,8 @@ export interface EjercicioEnDia {
   duracion_segundos: number | null
   notas: string | null
   rpe_objetivo: number | null
+  modalidad: Modalidad
+  agrupacion: string | null
 }
 
 export interface EstadoDia {
@@ -72,7 +78,7 @@ async function getData(alumnoId: string) {
         dias:rutina_dias(
           id, dia_semana, nombre, orden, es_descanso, semana_numero, calentamiento_id,
           ejercicios:rutina_ejercicios(
-            id, ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, duracion_segundos, notas, rpe_objetivo
+            id, ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, duracion_segundos, notas, rpe_objetivo, modalidad, agrupacion
           )
         )
       `)
@@ -161,6 +167,8 @@ async function getData(alumnoId: string) {
             duracion_segundos: re.duracion_segundos ?? null,
             notas: re.notas,
             rpe_objetivo: re.rpe_objetivo ?? null,
+            modalidad: (re.modalidad ?? 'normal') as Modalidad,
+            agrupacion: re.agrupacion ?? null,
           }
         })
 

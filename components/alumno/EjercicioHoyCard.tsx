@@ -5,6 +5,7 @@ import { CheckCircle2, ChevronDown, ChevronUp, Clock, PlayCircle, Trash2 } from 
 import { grupoColor, rpeButtonColor, RPE_CONFIG } from '@/lib/utils'
 import { eliminarProgreso } from '@/app/(alumno)/rutina/actions'
 import { offlineWrite } from '@/lib/offline-write'
+import { MODALIDADES, type Modalidad } from '@/lib/modalidades'
 import type { GrupoMuscular } from '@/lib/types/database'
 
 export interface EjercicioHoyData {
@@ -19,6 +20,8 @@ export interface EjercicioHoyData {
   duracion_segundos: number | null
   notas: string | null
   rpe_objetivo: number | null
+  modalidad: string
+  agrupacion: string | null
   ultimoPeso: number | null
   ultimasReps: string | null
   registroHoy: {
@@ -192,15 +195,20 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
               </a>
             )}
           </div>
-          {ejercicio.grupos.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {ejercicio.grupos.map((g) => (
-                <span key={g.id} className={`rounded-full px-1.5 text-xs font-medium ${grupoColor(g.nombre)}`}>
-                  {g.nombre}
-                </span>
-              ))}
-            </div>
-          )}
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            {ejercicio.grupos.map((g) => (
+              <span key={g.id} className={`rounded-full px-1.5 text-xs font-medium ${grupoColor(g.nombre)}`}>
+                {g.nombre}
+              </span>
+            ))}
+            {ejercicio.modalidad && ejercicio.modalidad !== 'normal' && MODALIDADES[ejercicio.modalidad as Modalidad] && (
+              <span className={`flex items-center gap-0.5 rounded-full px-1.5 text-xs font-semibold ${MODALIDADES[ejercicio.modalidad as Modalidad].color}`}>
+                {MODALIDADES[ejercicio.modalidad as Modalidad].emoji}
+                {MODALIDADES[ejercicio.modalidad as Modalidad].short}
+                {ejercicio.agrupacion && <span className="ml-0.5 rounded bg-white/40 px-1">{ejercicio.agrupacion}</span>}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -238,6 +246,20 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
       {/* Panel expandido */}
       {expandido && (
         <div className="border-t border-slate-100 px-4 pb-4">
+          {/* Aviso de modalidad si es especial */}
+          {ejercicio.modalidad && ejercicio.modalidad !== 'normal' && MODALIDADES[ejercicio.modalidad as Modalidad] && (
+            <div className={`mt-3 rounded-xl p-3 ${MODALIDADES[ejercicio.modalidad as Modalidad].color}`}>
+              <p className="text-xs font-bold flex items-center gap-1">
+                {MODALIDADES[ejercicio.modalidad as Modalidad].emoji}
+                {MODALIDADES[ejercicio.modalidad as Modalidad].label}
+                {ejercicio.agrupacion && <span className="ml-1 rounded bg-white/50 px-1.5 py-0.5">Grupo {ejercicio.agrupacion}</span>}
+              </p>
+              <p className="mt-1 text-xs opacity-80 leading-snug">
+                {MODALIDADES[ejercicio.modalidad as Modalidad].descripcion}
+              </p>
+            </div>
+          )}
+
           {/* Contexto */}
           <div className="mb-4 mt-3 flex flex-wrap gap-3">
             {ejercicio.ultimoPeso !== null && (
