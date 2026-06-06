@@ -1093,7 +1093,7 @@ export function RutinaBuilder({
               onDesagrupar={(agrupacion, diaId) => {
                 startTransition(async () => {
                   await desagruparEjercicios(agrupacion, diaId, alumnoId)
-                  router.refresh()
+                  window.location.reload()
                 })
               }}
             />
@@ -1191,7 +1191,7 @@ export function RutinaBuilder({
           alumnoId={alumnoId}
           bloques={bloquesDisponibles}
           onClose={() => setCargarBloqueOpen(false)}
-          onAplicado={() => { setCargarBloqueOpen(false); router.refresh() }}
+          onAplicado={() => { setCargarBloqueOpen(false); window.location.reload() }}
         />
       )}
 
@@ -1202,7 +1202,7 @@ export function RutinaBuilder({
           ejercicios={diaData.ejercicios.filter((e) => !e.agrupacion)}
           alumnoId={alumnoId}
           onClose={() => setAgruparOpen(null)}
-          onAgrupado={() => { setAgruparOpen(null); router.refresh() }}
+          onAgrupado={() => { setAgruparOpen(null); window.location.reload() }}
         />
       )}
 
