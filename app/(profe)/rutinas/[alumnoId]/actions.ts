@@ -126,6 +126,8 @@ export async function agregarEjercicioARutina({
   peso_objetivo,
   descanso_segundos,
   duracion_segundos,
+  modalidad,
+  agrupacion,
 }: {
   rutinaId: string
   diaId: string | null
@@ -138,6 +140,8 @@ export async function agregarEjercicioARutina({
   peso_objetivo: number | null
   descanso_segundos: number
   duracion_segundos?: number | null
+  modalidad?: string
+  agrupacion?: string | null
 }): Promise<{ error?: string; diaId?: string; ejercicioRutinaId?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -175,6 +179,8 @@ export async function agregarEjercicioARutina({
         peso_objetivo,
         descanso_segundos,
         duracion_segundos: duracion_segundos ?? null,
+        modalidad: modalidad ?? 'normal',
+        agrupacion: agrupacion ?? null,
       })
       .select('id')
       .single()

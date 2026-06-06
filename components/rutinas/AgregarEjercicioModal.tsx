@@ -24,6 +24,10 @@ interface AgregarEjercicioModalProps {
   diaActual: EstadoDia
   ejerciciosLib: EjercicioItem[]
   onAgregado: (diaId: string, ejercicios: EjercicioEnDia[]) => void
+  modalidadPre?: string             // 'normal' (default) o cualquier otra modalidad
+  agrupacionPre?: string | null     // letra de agrupación (para biserie/superserie/triserie)
+  maxSeleccionados?: number         // si es 1, fuerza single-select
+  tituloPersonalizado?: string      // header del modal
 }
 
 export function AgregarEjercicioModal({
@@ -36,6 +40,10 @@ export function AgregarEjercicioModal({
   diaActual,
   ejerciciosLib,
   onAgregado,
+  modalidadPre = 'normal',
+  agrupacionPre = null,
+  maxSeleccionados,
+  tituloPersonalizado,
 }: AgregarEjercicioModalProps) {
   const [isPending, startTransition] = useTransition()
   const [search, setSearch] = useState('')
@@ -74,8 +82,20 @@ export function AgregarEjercicioModal({
     if (yaEnDia.has(ej.id)) return
     setSelectedIds((prev) => {
       const next = new Set(prev)
-      if (next.has(ej.id)) next.delete(ej.id)
-      else next.add(ej.id)
+      if (next.has(ej.id)) {
+        next.delete(ej.id)
+      } else {
+        // Si hay límite y ya alcanzamos, reemplazar el último
+        if (maxSeleccionados && next.size >= maxSeleccionados) {
+          if (maxSeleccionados === 1) {
+            next.clear()
+          } else {
+            const firstId = next.values().next().value
+            if (firstId) next.delete(firstId)
+          }
+        }
+        next.add(ej.id)
+      }
       return next
     })
   }
@@ -110,6 +130,8 @@ export function AgregarEjercicioModal({
           repeticiones: params.repeticiones || '10',
           peso_objetivo: params.peso ? Number(params.peso) : null,
           descanso_segundos: Number(params.descanso) || 90,
+          modalidad: modalidadPre,
+          agrupacion: agrupacionPre,
         })
         if (result.error) { setError(result.error); return }
         finalDiaId = result.diaId!
@@ -136,7 +158,7 @@ export function AgregarEjercicioModal({
     <Modal
       open={open}
       onClose={handleClose}
-      title="Agregar ejercicios"
+      title={tituloPersonalizado ?? 'Agregar ejercicios'}
       className="max-w-lg max-h-[90vh] flex flex-col"
     >
       <div className="flex flex-col gap-4 overflow-hidden">

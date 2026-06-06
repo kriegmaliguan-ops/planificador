@@ -61,15 +61,39 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
   const inputClass =
     'w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-center'
 
+  const mod = ejercicio.modalidad as keyof typeof MODALIDADES
+  const modInfo = mod && mod !== 'normal' ? MODALIDADES[mod] : null
+
+  // Border izquierdo según modalidad (visual prominente)
+  const borderLeftClass =
+    !modInfo ? 'border-slate-200'
+    : ejercicio.modalidad === 'biserie' ? 'border-l-4 border-l-purple-400 border border-slate-200'
+    : ejercicio.modalidad === 'superserie' ? 'border-l-4 border-l-fuchsia-400 border border-slate-200'
+    : ejercicio.modalidad === 'triserie' ? 'border-l-4 border-l-indigo-400 border border-slate-200'
+    : ejercicio.modalidad === 'drop_set' ? 'border-l-4 border-l-red-400 border border-slate-200'
+    : ejercicio.modalidad === 'rest_pause' ? 'border-l-4 border-l-amber-400 border border-slate-200'
+    : ejercicio.modalidad === 'piramidal' ? 'border-l-4 border-l-orange-400 border border-slate-200'
+    : ejercicio.modalidad === 'isometrica' ? 'border-l-4 border-l-cyan-400 border border-slate-200'
+    : ejercicio.modalidad === 'tempo' ? 'border-l-4 border-l-emerald-400 border border-slate-200'
+    : 'border-slate-200'
+
   return (
-    <div className={`rounded-xl border bg-white transition-shadow ${isPending ? 'opacity-60' : ''}`}>
+    <div className={`rounded-xl bg-white transition-shadow ${borderLeftClass} ${isPending ? 'opacity-60' : ''}`}>
       {/* Fila principal */}
       <div className="flex items-center gap-3 px-4 py-3">
-        {/* Nombre + grupos */}
+        {/* Nombre + grupos + badge modalidad */}
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-slate-900 leading-snug truncate">
-            {ejercicio.nombre || '(sin nombre)'}
-          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-semibold text-slate-900 leading-snug truncate">
+              {ejercicio.nombre || '(sin nombre)'}
+            </p>
+            {modInfo && (
+              <span className={`shrink-0 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${modInfo.color}`}>
+                {modInfo.emoji} {modInfo.short}
+                {ejercicio.agrupacion && <span className="ml-0.5 rounded bg-white/50 px-1">{ejercicio.agrupacion}</span>}
+              </span>
+            )}
+          </div>
           {ejercicio.grupos.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
               {ejercicio.grupos.map((g) => (

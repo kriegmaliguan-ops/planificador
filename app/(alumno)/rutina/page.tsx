@@ -334,7 +334,7 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
     : null
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-6 space-y-4">
+    <div className="mx-auto max-w-lg md:max-w-2xl px-4 py-6 space-y-4">
 
       {/* Botón volver (modo semana) o DateNav normal */}
       {modoSemana ? (

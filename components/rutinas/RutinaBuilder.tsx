@@ -24,7 +24,7 @@ import { guardarDiaComoBloque, aplicarBloqueADia } from '@/app/(profe)/bloques/a
 import { EjercicioDiaRow } from './EjercicioDiaRow'
 import { AgregarEjercicioModal } from './AgregarEjercicioModal'
 import { DiaEjerciciosList } from './DiaEjerciciosList'
-import { AgruparEjerciciosModal } from './AgruparEjerciciosModal'
+import { MODALIDADES } from '@/lib/modalidades'
 import type { DiaSemana } from '@/lib/types/database'
 import type { EjercicioItem } from '@/app/(profe)/ejercicios/page'
 import type { RutinaData, EstadoDia, EjercicioEnDia } from '@/app/(profe)/rutinas/[alumnoId]/page'
@@ -468,7 +468,22 @@ export function RutinaBuilder({
   const [guardarBloqueOpen, setGuardarBloqueOpen] = useState(false)
   const [cargarBloqueOpen, setCargarBloqueOpen] = useState(false)
   const [aplicarPlantillaOpen, setAplicarPlantillaOpen] = useState(false)
-  const [agruparOpen, setAgruparOpen] = useState<null | 'biserie' | 'superserie' | 'triserie'>(null)
+  // Configuración del modal cuando se abre desde un botón de modalidad o slot de draft
+  const [agregarConfig, setAgregarConfig] = useState<{
+    modalidad: string
+    agrupacion: string | null
+    maxSeleccionados?: number
+    titulo: string
+  } | null>(null)
+  // Drafts de grupos (biserie/superserie/triserie) creados localmente, esperando que se llenen
+  const [drafts, setDrafts] = useState<Array<{
+    id: string
+    modalidad: 'biserie' | 'superserie' | 'triserie'
+    agrupacion: string  // A, B, C...
+    semana: number
+    dia: DiaSemana
+    slotsTotal: number
+  }>>([])
   const [confirmarBorrarSemana, setConfirmarBorrarSemana] = useState<number | null>(null)
   const [, startTransition] = useTransition()
 
@@ -660,6 +675,31 @@ export function RutinaBuilder({
         },
       }
     })
+  }
+
+  // ── Crear un draft group (biserie/superserie/triserie vacío) ────────────────
+  function handleCrearDraft(modalidad: 'biserie' | 'superserie' | 'triserie') {
+    // Letras de agrupación ya usadas en el día (incluyendo ejercicios reales + drafts)
+    const ejs = rutina?.dias[semanaActiva]?.[diaActivo]?.ejercicios ?? []
+    const usadas = new Set<string>()
+    for (const e of ejs) if (e.agrupacion) usadas.add(e.agrupacion.toUpperCase())
+    for (const d of drafts) {
+      if (d.semana === semanaActiva && d.dia === diaActivo) usadas.add(d.agrupacion)
+    }
+    let letra = 'A'
+    for (let i = 0; i < 26; i++) {
+      const c = String.fromCharCode(65 + i)
+      if (!usadas.has(c)) { letra = c; break }
+    }
+    const slotsTotal = modalidad === 'triserie' ? 3 : 2
+    setDrafts((p) => [...p, {
+      id: `draft-${Date.now()}`,
+      modalidad,
+      agrupacion: letra,
+      semana: semanaActiva,
+      dia: diaActivo,
+      slotsTotal,
+    }])
   }
 
   // ── Mover ejercicio arriba o abajo
@@ -959,7 +999,7 @@ export function RutinaBuilder({
 
       {/* Contenido del día */}
       <div className="flex-1 overflow-y-auto bg-slate-50 p-6">
-        <div className="mx-auto max-w-2xl space-y-4">
+        <div className="mx-auto max-w-2xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl space-y-4 px-2 md:px-4 lg:px-6">
 
           {/* Controles del día */}
           <div className="flex items-center justify-between">
@@ -1071,7 +1111,7 @@ export function RutinaBuilder({
                 Quitar descanso
               </button>
             </div>
-          ) : diaData.ejercicios.length === 0 ? (
+          ) : diaData.ejercicios.length === 0 && drafts.filter((d) => d.semana === semanaActiva && d.dia === diaActivo).length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 bg-white py-14 text-center">
               <Dumbbell className="h-10 w-10 text-slate-300" />
               <div>
@@ -1086,6 +1126,7 @@ export function RutinaBuilder({
               ejercicios={diaData.ejercicios}
               diaId={diaData.id}
               alumnoId={alumnoId}
+              drafts={drafts.filter((d) => d.semana === semanaActiva && d.dia === diaActivo)}
               onMoveUp={(id) => handleMoverEjercicio(id, 'up')}
               onMoveDown={(id) => handleMoverEjercicio(id, 'down')}
               onRemove={handleEjercicioRemovido}
@@ -1096,20 +1137,86 @@ export function RutinaBuilder({
                   window.location.reload()
                 })
               }}
+              onLlenarSlot={(modalidad, agrupacion) => {
+                const info = MODALIDADES[modalidad as keyof typeof MODALIDADES]
+                setAgregarConfig({
+                  modalidad,
+                  agrupacion,
+                  maxSeleccionados: 1,
+                  titulo: `Agregar a ${info?.label ?? modalidad} ${agrupacion}`,
+                })
+                setAgregarOpen(true)
+              }}
+              onCancelarDraft={(draftId) => setDrafts((p) => p.filter((d) => d.id !== draftId))}
             />
           )}
 
           {/* Botones agregar / bloques (solo si no es descanso) */}
           {!diaData.esDescanso && (
-            <div className="space-y-2">
+            <div className="mt-3 space-y-3">
+              {/* Botón principal: Agregar ejercicio normal */}
               <button
-                onClick={() => setAgregarOpen(true)}
+                onClick={() => {
+                  setAgregarConfig({ modalidad: 'normal', agrupacion: null, titulo: 'Agregar ejercicio' })
+                  setAgregarOpen(true)
+                }}
                 className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-3 text-sm font-medium text-slate-500 transition-colors hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600"
               >
                 <Plus className="h-4 w-4" />
                 Agregar ejercicio
               </button>
-              <div className="flex gap-2">
+
+              {/* Tipos especiales (modalidades de 1 ejercicio) */}
+              <div>
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Tipos especiales
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(['drop_set','rest_pause','piramidal','isometrica','tempo'] as const).map((m) => {
+                    const info = MODALIDADES[m]
+                    return (
+                      <button
+                        key={m}
+                        onClick={() => {
+                          setAgregarConfig({
+                            modalidad: m,
+                            agrupacion: null,
+                            titulo: `Agregar ejercicio (${info.label})`,
+                          })
+                          setAgregarOpen(true)
+                        }}
+                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${info.color} hover:opacity-80`}
+                      >
+                        {info.emoji} {info.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Series encadenadas (crean grupos vacíos) */}
+              <div>
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Series encadenadas
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(['biserie','superserie','triserie'] as const).map((m) => {
+                    const info = MODALIDADES[m]
+                    return (
+                      <button
+                        key={m}
+                        onClick={() => handleCrearDraft(m)}
+                        className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${info.color} hover:opacity-80`}
+                      >
+                        🔗 Crear {info.label.toLowerCase()}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Operaciones del día */}
+              <div className="flex flex-wrap gap-2 pt-1">
                 {bloquesDisponibles.length > 0 && (
                   <button
                     onClick={() => setCargarBloqueOpen(true)}
@@ -1129,32 +1236,6 @@ export function RutinaBuilder({
                   </button>
                 )}
               </div>
-
-              {/* Botones para crear biserie/superserie/triserie */}
-              {diaData.ejercicios.length >= 2 && (
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    onClick={() => setAgruparOpen('biserie')}
-                    className="flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-[11px] font-semibold text-purple-700 hover:bg-purple-100"
-                  >
-                    🔗 Crear biserie
-                  </button>
-                  <button
-                    onClick={() => setAgruparOpen('superserie')}
-                    className="flex items-center gap-1 rounded-lg border border-fuchsia-200 bg-fuchsia-50 px-2.5 py-1.5 text-[11px] font-semibold text-fuchsia-700 hover:bg-fuchsia-100"
-                  >
-                    🔗 Crear superserie
-                  </button>
-                  {diaData.ejercicios.length >= 3 && (
-                    <button
-                      onClick={() => setAgruparOpen('triserie')}
-                      className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100"
-                    >
-                      🔗 Crear triserie
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -1163,14 +1244,43 @@ export function RutinaBuilder({
       {/* Modal agregar ejercicio */}
       <AgregarEjercicioModal
         open={agregarOpen}
-        onClose={() => setAgregarOpen(false)}
+        onClose={() => { setAgregarOpen(false); setAgregarConfig(null) }}
         rutinaId={rutina.id}
         alumnoId={alumnoId}
         diaSemana={diaActivo}
         semanaNumero={semanaActiva}
         diaActual={diaData}
         ejerciciosLib={ejerciciosLib}
-        onAgregado={handleEjercicioAgregado}
+        onAgregado={(diaId, agregados) => {
+          handleEjercicioAgregado(diaId, agregados)
+          // Si veníamos de un slot de draft, removemos el draft cuando ya tiene todos sus ejercicios
+          if (agregarConfig?.agrupacion && agregarConfig.maxSeleccionados === 1) {
+            // Solo cerrar agregarConfig; el draft se elimina automáticamente cuando todos los slots se llenan
+            // (DiaEjerciciosList renderiza slots vacíos solo si hay menos ejercicios que slotsTotal)
+            // Si llenó el último slot, el draft sale del state al refetcheo de la DB
+            setDrafts((p) => {
+              const draftIdx = p.findIndex(
+                (d) => d.agrupacion === agregarConfig.agrupacion &&
+                  d.semana === semanaActiva && d.dia === diaActivo
+              )
+              if (draftIdx === -1) return p
+              const draft = p[draftIdx]
+              // Cuántos ejercicios reales hay ya con esa agrupación
+              const realesConEsaAgrup = (rutina?.dias[semanaActiva]?.[diaActivo]?.ejercicios ?? [])
+                .filter((e) => e.agrupacion === draft.agrupacion).length
+              // Después de este agregado (1 más), ¿el draft está lleno?
+              if (realesConEsaAgrup + 1 >= draft.slotsTotal) {
+                return p.filter((_, i) => i !== draftIdx)
+              }
+              return p
+            })
+          }
+          setAgregarConfig(null)
+        }}
+        modalidadPre={agregarConfig?.modalidad ?? 'normal'}
+        agrupacionPre={agregarConfig?.agrupacion ?? null}
+        maxSeleccionados={agregarConfig?.maxSeleccionados}
+        tituloPersonalizado={agregarConfig?.titulo}
       />
 
       {/* Modal: Guardar día como bloque */}
@@ -1195,16 +1305,7 @@ export function RutinaBuilder({
         />
       )}
 
-      {/* Modal: Agrupar ejercicios en biserie/superserie/triserie */}
-      {agruparOpen && (
-        <AgruparEjerciciosModal
-          modalidad={agruparOpen}
-          ejercicios={diaData.ejercicios.filter((e) => !e.agrupacion)}
-          alumnoId={alumnoId}
-          onClose={() => setAgruparOpen(null)}
-          onAgrupado={() => { setAgruparOpen(null); window.location.reload() }}
-        />
-      )}
+      {/* Modal AgruparEjerciciosModal eliminado: el flujo nuevo usa drafts con slots vacíos */}
 
       {/* Modal: Aplicar plantilla (reemplazar rutina) */}
       {aplicarPlantillaOpen && !templateMode && (

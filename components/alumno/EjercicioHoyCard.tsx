@@ -165,8 +165,20 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
     })
   }
 
+  // Border izquierdo según modalidad para identificar visualmente
+  const modalidadBorder =
+    ejercicio.modalidad === 'biserie' ? 'border-l-4 border-l-purple-400'
+    : ejercicio.modalidad === 'superserie' ? 'border-l-4 border-l-fuchsia-400'
+    : ejercicio.modalidad === 'triserie' ? 'border-l-4 border-l-indigo-400'
+    : ejercicio.modalidad === 'drop_set' ? 'border-l-4 border-l-red-400'
+    : ejercicio.modalidad === 'rest_pause' ? 'border-l-4 border-l-amber-400'
+    : ejercicio.modalidad === 'piramidal' ? 'border-l-4 border-l-orange-400'
+    : ejercicio.modalidad === 'isometrica' ? 'border-l-4 border-l-cyan-400'
+    : ejercicio.modalidad === 'tempo' ? 'border-l-4 border-l-emerald-400'
+    : ''
+
   return (
-    <div className={`overflow-hidden rounded-2xl bg-white shadow-sm ring-1 transition-all ${
+    <div className={`overflow-hidden rounded-2xl bg-white shadow-sm ring-1 transition-all ${modalidadBorder} ${
       guardado ? 'ring-emerald-200' : 'ring-slate-100'
     }`}>
       {/* Header del ejercicio */}
