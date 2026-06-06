@@ -1,9 +1,10 @@
 'use client'
 
-import { useMemo } from 'react'
-import { Link2, Unlink, Plus, X } from 'lucide-react'
+import { useMemo, useState, useTransition } from 'react'
+import { Link2, Unlink, Plus, X, Clock } from 'lucide-react'
 import { EjercicioDiaRow } from './EjercicioDiaRow'
 import { MODALIDADES, type Modalidad } from '@/lib/modalidades'
+import { actualizarEjercicioRutina } from '@/app/(profe)/rutinas/[alumnoId]/actions'
 import type { EjercicioEnDia } from '@/app/(profe)/rutinas/[alumnoId]/page'
 
 export interface DraftGroup {
@@ -123,26 +124,34 @@ export function DiaEjerciciosList({
             key={`g-${grupo.agrupacion}-${gIdx}`}
             className={`rounded-2xl border-2 p-2 ${colors.border} ${colors.bg}`}
           >
-            {/* Header del grupo */}
+            {/* Header del grupo con descanso a nivel grupo */}
             <div className="mb-2 flex items-center justify-between gap-2 px-2 py-1">
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center gap-2 min-w-0 flex-wrap">
                 <Link2 className={`h-4 w-4 shrink-0 ${colors.icon}`} />
                 <span className={`text-xs font-bold uppercase tracking-wide ${colors.text}`}>
                   {info?.label ?? grupo.modalidad} {grupo.agrupacion}
                 </span>
-                <span className="text-[10px] text-slate-500 truncate">
+                <span className="text-[10px] text-slate-500">
                   ({grupo.ejercicios.length}{draftPair ? `/${draftPair.slotsTotal}` : ''} ejercicio{grupo.ejercicios.length !== 1 ? 's' : ''})
                 </span>
               </div>
-              {diaId && (
-                <button
-                  onClick={() => onDesagrupar(grupo.agrupacion, diaId)}
-                  title="Desagrupar"
-                  className="rounded-lg p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                >
-                  <Unlink className="h-3.5 w-3.5" />
-                </button>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                <DescansoGrupo
+                  ejercicios={grupo.ejercicios}
+                  alumnoId={alumnoId}
+                  onUpdateLocal={onUpdate}
+                  color={colors.text}
+                />
+                {diaId && (
+                  <button
+                    onClick={() => onDesagrupar(grupo.agrupacion, diaId)}
+                    title="Desagrupar"
+                    className="rounded-lg p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <Unlink className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Ejercicios del grupo */}
@@ -222,6 +231,66 @@ export function DiaEjerciciosList({
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ── Input de descanso a nivel grupo ───────────────────────────────────────────
+// El descanso del grupo se aplica al CICLO completo del biserie/triserie
+// (no a cada ejercicio individual). Se guarda en TODOS los ejercicios del grupo
+// para que el alumno lo vea bien sin importar cuál mire.
+
+function DescansoGrupo({
+  ejercicios,
+  alumnoId,
+  onUpdateLocal,
+  color,
+}: {
+  ejercicios: EjercicioEnDia[]
+  alumnoId: string
+  onUpdateLocal: (id: string, updates: Partial<EjercicioEnDia>) => void
+  color: string
+}) {
+  const initial = ejercicios[0]?.descanso_segundos ?? 90
+  const [valor, setValor] = useState<number>(initial)
+  const [, startTransition] = useTransition()
+
+  function handleBlur() {
+    // Sincronizar descanso en TODOS los ejercicios del grupo
+    startTransition(async () => {
+      for (const ej of ejercicios) {
+        if (ej.descanso_segundos !== valor) {
+          await actualizarEjercicioRutina(ej.id, alumnoId, {
+            series: ej.series,
+            repeticiones: ej.repeticiones,
+            peso_objetivo: ej.peso_objetivo,
+            descanso_segundos: valor,
+            duracion_segundos: ej.duracion_segundos,
+            notas: ej.notas,
+            rpe_objetivo: ej.rpe_objetivo,
+            modalidad: ej.modalidad,
+            agrupacion: ej.agrupacion,
+          })
+          onUpdateLocal(ej.id, { descanso_segundos: valor })
+        }
+      }
+    })
+  }
+
+  return (
+    <div className={`flex items-center gap-1 rounded-md bg-white/60 px-1.5 py-0.5 text-[10px] font-semibold ${color}`}>
+      <Clock className="h-3 w-3" />
+      <span>Descanso:</span>
+      <input
+        type="number"
+        min={0}
+        step={15}
+        value={valor}
+        onChange={(e) => setValor(Number(e.target.value))}
+        onBlur={handleBlur}
+        className="w-10 rounded bg-transparent text-center text-[10px] font-bold outline-none focus:bg-white"
+      />
+      <span>s</span>
     </div>
   )
 }

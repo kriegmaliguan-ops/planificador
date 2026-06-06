@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Link2 } from 'lucide-react'
+import { Link2, Clock } from 'lucide-react'
 import { EjercicioHoyCard, type EjercicioHoyData } from './EjercicioHoyCard'
 import { MODALIDADES, type Modalidad } from '@/lib/modalidades'
 
@@ -92,6 +92,17 @@ export function EjerciciosDelDia({ ejercicios, fecha }: Props) {
                   Hacé los {grupo.items.length} ejercicios <strong>seguidos sin descanso</strong>, después descansá.
                 </p>
               </div>
+              {/* Descanso del grupo: tomamos el del primer ejercicio (todos deberían tener el mismo) */}
+              {grupo.items[0]?.ejercicio.descanso_segundos != null && (
+                <div className={`flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold ${
+                  accent === 'purple' ? 'bg-purple-200 text-purple-800'
+                  : accent === 'fuchsia' ? 'bg-fuchsia-200 text-fuchsia-800'
+                  : 'bg-indigo-200 text-indigo-800'
+                }`}>
+                  <Clock className="h-3 w-3" />
+                  {grupo.items[0].ejercicio.descanso_segundos}s
+                </div>
+              )}
             </div>
 
             {/* Ejercicios encadenados */}

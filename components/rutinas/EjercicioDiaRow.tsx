@@ -157,19 +157,22 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
               className={`${inputClass} w-20`}
             />
           </div>
-          <div className="text-center">
-            <p className="mb-1 text-xs text-slate-400">Descanso</p>
-            <input
-              type="number"
-              min={0}
-              step={15}
-              value={local.descanso_segundos}
-              onChange={(e) => setLocal((p) => ({ ...p, descanso_segundos: Number(e.target.value) }))}
-              onBlur={handleBlur}
-              placeholder="90s"
-              className={`${inputClass} w-16`}
-            />
-          </div>
+          {/* Descanso — oculto en biserie/superserie/triserie (se muestra a nivel grupo) */}
+          {!['biserie', 'superserie', 'triserie'].includes(ejercicio.modalidad) && (
+            <div className="text-center">
+              <p className="mb-1 text-xs text-slate-400">Descanso</p>
+              <input
+                type="number"
+                min={0}
+                step={15}
+                value={local.descanso_segundos}
+                onChange={(e) => setLocal((p) => ({ ...p, descanso_segundos: Number(e.target.value) }))}
+                onBlur={handleBlur}
+                placeholder="90s"
+                className={`${inputClass} w-16`}
+              />
+            </div>
+          )}
           <div className="text-center">
             <p className="mb-1 text-xs text-slate-400">RPE obj.</p>
             <select
@@ -242,7 +245,8 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
               { label: 'Reps', key: 'repeticiones', type: 'text' },
               { label: 'Tiempo (s)', key: 'duracion_segundos', type: 'number' },
               { label: 'Peso (kg)', key: 'peso_objetivo', type: 'number' },
-              { label: 'Descanso (s)', key: 'descanso_segundos', type: 'number' },
+              // Descanso oculto si el ejercicio es parte de una biserie/superserie/triserie
+              ...(['biserie', 'superserie', 'triserie'].includes(ejercicio.modalidad) ? [] : [{ label: 'Descanso (s)', key: 'descanso_segundos', type: 'number' }]),
             ].map(({ label, key, type }) => (
               <div key={key}>
                 <label className="block mb-1 text-xs text-slate-500">{label}</label>

@@ -281,7 +281,8 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
                 </span>
               </div>
             )}
-            {ejercicio.descanso_segundos && (
+            {/* Descanso: oculto si es parte de biserie/superserie/triserie (se muestra a nivel grupo) */}
+            {ejercicio.descanso_segundos && !['biserie', 'superserie', 'triserie'].includes(ejercicio.modalidad) && (
               <div className="flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-1.5">
                 <Clock className="h-3.5 w-3.5 text-slate-500" />
                 <span className="text-xs font-medium text-slate-600">
