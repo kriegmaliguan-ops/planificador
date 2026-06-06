@@ -145,7 +145,11 @@ export function AgregarEjercicioModal({
           repeticiones: params.repeticiones || '10',
           peso_objetivo: params.peso ? Number(params.peso) : null,
           descanso_segundos: Number(params.descanso) || 90,
+          duracion_segundos: null,
           notas: null,
+          rpe_objetivo: null,
+          modalidad: (modalidadPre ?? 'normal') as any,
+          agrupacion: agrupacionPre ?? null,
         })
       }
 
