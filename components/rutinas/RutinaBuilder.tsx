@@ -15,12 +15,16 @@ import {
   eliminarSemana,
   reordenarEjercicios,
   enviarMensajeAlumno,
+  agruparEjercicios,
+  desagruparEjercicios,
 } from '@/app/(profe)/rutinas/[alumnoId]/actions'
 import { crearRutinaDesdePlantilla } from '@/app/(profe)/plantillas/actions'
 import { asignarCalentamientoADia } from '@/app/(profe)/calentamientos/actions'
 import { guardarDiaComoBloque, aplicarBloqueADia } from '@/app/(profe)/bloques/actions'
 import { EjercicioDiaRow } from './EjercicioDiaRow'
 import { AgregarEjercicioModal } from './AgregarEjercicioModal'
+import { DiaEjerciciosList } from './DiaEjerciciosList'
+import { AgruparEjerciciosModal } from './AgruparEjerciciosModal'
 import type { DiaSemana } from '@/lib/types/database'
 import type { EjercicioItem } from '@/app/(profe)/ejercicios/page'
 import type { RutinaData, EstadoDia, EjercicioEnDia } from '@/app/(profe)/rutinas/[alumnoId]/page'
@@ -464,6 +468,7 @@ export function RutinaBuilder({
   const [guardarBloqueOpen, setGuardarBloqueOpen] = useState(false)
   const [cargarBloqueOpen, setCargarBloqueOpen] = useState(false)
   const [aplicarPlantillaOpen, setAplicarPlantillaOpen] = useState(false)
+  const [agruparOpen, setAgruparOpen] = useState<null | 'biserie' | 'superserie' | 'triserie'>(null)
   const [confirmarBorrarSemana, setConfirmarBorrarSemana] = useState<number | null>(null)
   const [, startTransition] = useTransition()
 
@@ -1077,21 +1082,21 @@ export function RutinaBuilder({
               </div>
             </div>
           ) : (
-            <div className="space-y-2">
-              {diaData.ejercicios.map((ej, idx) => (
-                <EjercicioDiaRow
-                  key={ej.id}
-                  ejercicio={ej}
-                  alumnoId={alumnoId}
-                  isFirst={idx === 0}
-                  isLast={idx === diaData.ejercicios.length - 1}
-                  onMoveUp={() => handleMoverEjercicio(ej.id, 'up')}
-                  onMoveDown={() => handleMoverEjercicio(ej.id, 'down')}
-                  onRemove={handleEjercicioRemovido}
-                  onUpdate={handleEjercicioActualizado}
-                />
-              ))}
-            </div>
+            <DiaEjerciciosList
+              ejercicios={diaData.ejercicios}
+              diaId={diaData.id}
+              alumnoId={alumnoId}
+              onMoveUp={(id) => handleMoverEjercicio(id, 'up')}
+              onMoveDown={(id) => handleMoverEjercicio(id, 'down')}
+              onRemove={handleEjercicioRemovido}
+              onUpdate={handleEjercicioActualizado}
+              onDesagrupar={(agrupacion, diaId) => {
+                startTransition(async () => {
+                  await desagruparEjercicios(agrupacion, diaId, alumnoId)
+                  router.refresh()
+                })
+              }}
+            />
           )}
 
           {/* Botones agregar / bloques (solo si no es descanso) */}
@@ -1124,6 +1129,32 @@ export function RutinaBuilder({
                   </button>
                 )}
               </div>
+
+              {/* Botones para crear biserie/superserie/triserie */}
+              {diaData.ejercicios.length >= 2 && (
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => setAgruparOpen('biserie')}
+                    className="flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-[11px] font-semibold text-purple-700 hover:bg-purple-100"
+                  >
+                    🔗 Crear biserie
+                  </button>
+                  <button
+                    onClick={() => setAgruparOpen('superserie')}
+                    className="flex items-center gap-1 rounded-lg border border-fuchsia-200 bg-fuchsia-50 px-2.5 py-1.5 text-[11px] font-semibold text-fuchsia-700 hover:bg-fuchsia-100"
+                  >
+                    🔗 Crear superserie
+                  </button>
+                  {diaData.ejercicios.length >= 3 && (
+                    <button
+                      onClick={() => setAgruparOpen('triserie')}
+                      className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100"
+                    >
+                      🔗 Crear triserie
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1161,6 +1192,17 @@ export function RutinaBuilder({
           bloques={bloquesDisponibles}
           onClose={() => setCargarBloqueOpen(false)}
           onAplicado={() => { setCargarBloqueOpen(false); router.refresh() }}
+        />
+      )}
+
+      {/* Modal: Agrupar ejercicios en biserie/superserie/triserie */}
+      {agruparOpen && (
+        <AgruparEjerciciosModal
+          modalidad={agruparOpen}
+          ejercicios={diaData.ejercicios.filter((e) => !e.agrupacion)}
+          alumnoId={alumnoId}
+          onClose={() => setAgruparOpen(null)}
+          onAgrupado={() => { setAgruparOpen(null); router.refresh() }}
         />
       )}
 

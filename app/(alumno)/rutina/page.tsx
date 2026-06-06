@@ -10,6 +10,7 @@ import { BienestarCard } from '@/components/alumno/BienestarCard'
 import { DateNav } from '@/components/alumno/DateNav'
 import { RegistrarTodoBtn } from '@/components/alumno/RegistrarTodoBtn'
 import { CalentamientoCard } from '@/components/alumno/CalentamientoCard'
+import { EjerciciosDelDia } from '@/components/alumno/EjerciciosDelDia'
 import type { Profile, GrupoMuscular, DiaSemana } from '@/lib/types/database'
 import type { EjercicioHoyData } from '@/components/alumno/EjercicioHoyCard'
 
@@ -467,14 +468,7 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
           {/* Calentamiento del día (si está asignado) */}
           {calentamientoHoy && <CalentamientoCard calentamiento={calentamientoHoy} />}
 
-          {ejerciciosHoy.map((ej, i) => (
-            <EjercicioHoyCard
-              key={ej.rutinaEjercicioId}
-              ejercicio={ej}
-              index={i}
-              fecha={fecha}
-            />
-          ))}
+          <EjerciciosDelDia ejercicios={ejerciciosHoy} fecha={fecha} />
 
           <RegistrarTodoBtn
             ejercicios={ejerciciosHoy.map((e) => ({

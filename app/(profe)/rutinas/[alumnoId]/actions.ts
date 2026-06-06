@@ -457,6 +457,143 @@ export async function copiarSemana(
   return {}
 }
 
+// ── Agrupar ejercicios en biserie/superserie/triserie ────────────────────────
+
+export async function agruparEjercicios(args: {
+  ejercicioIds: string[]      // 2 o 3 IDs de rutina_ejercicios
+  modalidad: 'biserie' | 'superserie' | 'triserie'
+  alumnoId: string
+}): Promise<{ error?: string; agrupacion?: string }> {
+  if (args.ejercicioIds.length < 2 || args.ejercicioIds.length > 3) {
+    return { error: 'Tenés que elegir 2 o 3 ejercicios.' }
+  }
+  if (args.modalidad === 'triserie' && args.ejercicioIds.length !== 3) {
+    return { error: 'La triserie requiere exactamente 3 ejercicios.' }
+  }
+  if ((args.modalidad === 'biserie' || args.modalidad === 'superserie') && args.ejercicioIds.length !== 2) {
+    return { error: 'Biserie/superserie requieren exactamente 2 ejercicios.' }
+  }
+
+  const supabase = await createClient()
+  const admin = createAdminClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+
+  // Cargar info de los ejercicios elegidos (necesitamos dia_id + orden)
+  const { data: rows } = await admin
+    .from('rutina_ejercicios')
+    .select('id, dia_id, orden')
+    .in('id', args.ejercicioIds) as { data: { id: string; dia_id: string; orden: number }[] | null }
+
+  if (!rows || rows.length !== args.ejercicioIds.length) {
+    return { error: 'No se encontraron todos los ejercicios.' }
+  }
+
+  // Validar que estén en el mismo día
+  const diaId = rows[0].dia_id
+  if (!rows.every((r) => r.dia_id === diaId)) {
+    return { error: 'Todos los ejercicios deben ser del mismo día.' }
+  }
+
+  // Generar próxima letra de agrupación libre en el día (A, B, C...)
+  const { data: existing } = await admin
+    .from('rutina_ejercicios')
+    .select('agrupacion')
+    .eq('dia_id', diaId)
+    .not('agrupacion', 'is', null) as { data: { agrupacion: string }[] | null }
+  const usadas = new Set((existing ?? []).map((e) => (e.agrupacion ?? '').toUpperCase()))
+  let letra = ''
+  for (let i = 0; i < 26; i++) {
+    const candidato = String.fromCharCode(65 + i)  // A, B, C...
+    if (!usadas.has(candidato)) { letra = candidato; break }
+  }
+  if (!letra) return { error: 'Demasiados grupos en este día.' }
+
+  // Reordenar: ponerlos consecutivos preservando el menor orden inicial
+  const ordenInicio = Math.min(...rows.map((r) => r.orden))
+
+  // Para reordenar: queremos que los seleccionados queden en orden ordenInicio, ordenInicio+1, ...
+  // y el resto de los ejercicios del día se reacomoden.
+  const { data: todosDelDia } = await admin
+    .from('rutina_ejercicios')
+    .select('id, orden')
+    .eq('dia_id', diaId)
+    .order('orden') as { data: { id: string; orden: number }[] | null }
+
+  const seleccionadoIds = new Set(args.ejercicioIds)
+  const seleccionadosOrdenados = (todosDelDia ?? [])
+    .filter((e) => seleccionadoIds.has(e.id))
+    .sort((a, b) => a.orden - b.orden)
+    .map((e) => e.id)
+  // Aplicar el orden dado por el caller (args.ejercicioIds) o por orden actual: usamos el caller order
+  const finalSeleccionados = args.ejercicioIds.filter((id) => seleccionadosOrdenados.includes(id))
+
+  const noSeleccionados = (todosDelDia ?? [])
+    .filter((e) => !seleccionadoIds.has(e.id))
+    .map((e) => e.id)
+
+  // Nuevo orden:
+  // - Antes de ordenInicio: los no seleccionados que ya estaban antes
+  // - Desde ordenInicio: los seleccionados consecutivos
+  // - Después: los no seleccionados que estaban después
+  const nuevoOrden: string[] = []
+  let cursor = 0
+  for (const id of (todosDelDia ?? []).map((e) => e.id)) {
+    if (cursor === ordenInicio) {
+      // Insertar los seleccionados acá
+      for (const sid of finalSeleccionados) nuevoOrden.push(sid)
+      cursor += finalSeleccionados.length
+    }
+    if (!seleccionadoIds.has(id)) {
+      nuevoOrden.push(id)
+      cursor++
+    }
+  }
+  // Edge case: si ordenInicio era mayor que todos, agregar al final
+  if (!finalSeleccionados.every((id) => nuevoOrden.includes(id))) {
+    for (const sid of finalSeleccionados) {
+      if (!nuevoOrden.includes(sid)) nuevoOrden.push(sid)
+    }
+  }
+
+  // Update orden + modalidad/agrupacion en una transacción de updates
+  // (no hay transacciones nativas en supabase JS, hacemos updates secuenciales)
+  for (let i = 0; i < nuevoOrden.length; i++) {
+    const id = nuevoOrden[i]
+    const isSelected = seleccionadoIds.has(id)
+    const update: any = { orden: i }
+    if (isSelected) {
+      update.modalidad = args.modalidad
+      update.agrupacion = letra
+    }
+    await (admin.from('rutina_ejercicios') as any).update(update).eq('id', id)
+  }
+
+  revalidatePath(`/rutinas/${args.alumnoId}`)
+  return { agrupacion: letra }
+}
+
+// ── Desagrupar (quitar modalidad/agrupacion a ejercicios) ────────────────────
+
+export async function desagruparEjercicios(
+  agrupacion: string,
+  diaId: string,
+  alumnoId: string
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const admin = createAdminClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado.' }
+
+  await (admin.from('rutina_ejercicios') as any)
+    .update({ modalidad: 'normal', agrupacion: null })
+    .eq('dia_id', diaId)
+    .eq('agrupacion', agrupacion)
+
+  revalidatePath(`/rutinas/${alumnoId}`)
+  return {}
+}
+
 // ── Activar una rutina (desactiva las otras del mismo alumno) ─────────────────
 
 export async function activarRutina(
