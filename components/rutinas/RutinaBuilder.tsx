@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useState, useTransition } from 'react'
+import { Fragment, useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Check, Dumbbell, Moon, Copy, CopyCheck, CalendarDays, X, Trash2, MessageCircle, Send, Loader2, FileText, Flame, Clock, PlayCircle, Layers, Save, Download } from 'lucide-react'
 import { DIAS_SEMANA, DIAS_LABELS, getWeekDates } from '@/lib/utils'
@@ -456,8 +456,38 @@ export function RutinaBuilder({
   bloquesDisponibles = [],
 }: RutinaBuilderProps) {
   const [rutina, setRutina] = useState<RutinaData | null>(rutinaInicial)
-  const [semanaActiva, setSemanaActiva] = useState<number>(rutinaInicial?.semanas[0] ?? 1)
-  const [diaActivo, setDiaActivo] = useState<DiaSemana>('lunes')
+
+  // Restaurar semana/día activos desde sessionStorage para que sobrevivan a reloads
+  // (key por rutina/alumno para no mezclar entre rutinas)
+  const stateKey = `rb-${alumnoId || 'tpl'}-${rutinaInicial?.id ?? 'new'}`
+  const [semanaActiva, setSemanaActiva] = useState<number>(() => {
+    if (typeof window === 'undefined') return rutinaInicial?.semanas[0] ?? 1
+    const saved = sessionStorage.getItem(`${stateKey}-sem`)
+    const semInicial = rutinaInicial?.semanas[0] ?? 1
+    if (saved) {
+      const num = Number(saved)
+      if (rutinaInicial?.semanas.includes(num)) return num
+    }
+    return semInicial
+  })
+  const [diaActivo, setDiaActivo] = useState<DiaSemana>(() => {
+    if (typeof window === 'undefined') return 'lunes'
+    const saved = sessionStorage.getItem(`${stateKey}-dia`) as DiaSemana | null
+    const dias: DiaSemana[] = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
+    if (saved && dias.includes(saved)) return saved
+    return 'lunes'
+  })
+
+  // Guardar cambios en sessionStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    sessionStorage.setItem(`${stateKey}-sem`, String(semanaActiva))
+  }, [semanaActiva, stateKey])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    sessionStorage.setItem(`${stateKey}-dia`, diaActivo)
+  }, [diaActivo, stateKey])
   const [agregarOpen, setAgregarOpen] = useState(false)
   const [editandoNombre, setEditandoNombre] = useState(false)
   const [editandoDia, setEditandoDia] = useState(false)
