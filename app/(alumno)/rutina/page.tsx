@@ -473,7 +473,16 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
           <PartyPopper className="h-12 w-12 text-yellow-400" />
           <div>
             <p className="text-lg font-bold text-slate-900">Sin ejercicios</p>
-            <p className="mt-1 text-sm text-slate-500">No hay ejercicios programados para este día.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {esFuturo
+                ? 'Tu profe todavía no cargó ejercicios para esta semana. Volvé cuando estén listos.'
+                : 'No hay ejercicios programados para este día.'}
+            </p>
+            {esFuturo && (
+              <p className="mt-2 text-xs text-slate-400">
+                Día calculado: {fecha} · Sem {semanaNumero ?? '?'}
+              </p>
+            )}
           </div>
         </div>
       ) : (
