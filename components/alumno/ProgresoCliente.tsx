@@ -217,10 +217,18 @@ const PERIODO_LABELS: Record<Periodo, string> = {
   mensual: 'Últimas 4 semanas',
 }
 
-function PeriodoTabs({ periodo, onChange }: { periodo: Periodo; onChange: (p: Periodo) => void }) {
+function PeriodoTabs({
+  periodo,
+  onChange,
+  periodos = ['diario', 'semanal', 'mensual'],
+}: {
+  periodo: Periodo
+  onChange: (p: Periodo) => void
+  periodos?: Periodo[]
+}) {
   return (
     <div className="flex rounded-xl bg-slate-100 p-1">
-      {(['diario', 'semanal', 'mensual'] as Periodo[]).map((p) => (
+      {periodos.map((p) => (
         <button
           key={p}
           onClick={() => onChange(p)}
@@ -304,7 +312,8 @@ function SuenoTab({
 
   return (
     <div className="space-y-4">
-      <PeriodoTabs periodo={periodo} onChange={setPeriodo} />
+      {/* Solo semanal y mensual: el diario de sueño no aporta info útil */}
+      <PeriodoTabs periodo={periodo} onChange={setPeriodo} periodos={['semanal', 'mensual']} />
 
       {/* Chart */}
       <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100 overflow-hidden">
