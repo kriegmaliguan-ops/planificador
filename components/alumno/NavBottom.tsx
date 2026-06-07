@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { CalendarDays, TrendingUp, BookOpen } from 'lucide-react'
 
 const TABS = [
@@ -10,13 +10,31 @@ const TABS = [
   { href: '/progreso',  label: 'Progreso', icon: TrendingUp   },
 ]
 
+function getHoyLocal(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function NavBottom() {
   const pathname = usePathname()
+  const params = useSearchParams()
+  const fechaParam = params.get('fecha')
+  const hoy = getHoyLocal()
+
+  // Si está en /rutina pero con fecha distinta a hoy, marcar "Rutina" como activo
+  const estaPlaneando = pathname === '/rutina' && fechaParam !== null && fechaParam !== hoy
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-slate-200 bg-white">
       {TABS.map(({ href, label, icon: Icon }) => {
-        const active = pathname.startsWith(href)
+        let active: boolean
+        if (href === '/rutina') {
+          active = pathname === '/rutina' && !estaPlaneando
+        } else if (href === '/mi-rutina') {
+          active = pathname.startsWith('/mi-rutina') || estaPlaneando
+        } else {
+          active = pathname.startsWith(href)
+        }
         return (
           <Link
             key={href}

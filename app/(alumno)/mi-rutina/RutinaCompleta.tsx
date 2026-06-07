@@ -251,9 +251,18 @@ export function RutinaCompleta({ rutina, completadosHoy, bienestarPorFecha, hoy,
                   }
                 </p>
               </div>
-              {/* Botón Registrar */}
+              {/* Botón Registrar — calculo la fecha real del día clickeado */}
               <Link
-                href={`/rutina?semana=${semanaActiva}&dia=${diaActivo}`}
+                href={(() => {
+                  // Si tenemos fecha_inicio, calculamos la fecha exacta del día
+                  if (fechaInicio) {
+                    const diaIdx = DIAS_ORDER.indexOf(diaActivo)
+                    const fechaCalculada = addDays(fechaInicio, (semanaActiva - 1) * 7 + diaIdx)
+                    return `/rutina?fecha=${fechaCalculada}`
+                  }
+                  // Fallback al modo viejo (registra para hoy)
+                  return `/rutina?semana=${semanaActiva}&dia=${diaActivo}`
+                })()}
                 className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-500 active:bg-blue-700 transition-colors"
               >
                 <ClipboardList className="h-3.5 w-3.5" />

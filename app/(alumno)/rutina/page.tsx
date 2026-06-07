@@ -271,11 +271,15 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
   const diaOverride = (diaParam as DiaSemana | undefined)
   const modoSemana = semanaOverride !== undefined && !!diaOverride
 
-  // En modo semana: registrar para hoy
-  const fecha = modoSemana
-    ? hoyStr
-    : (fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam) && fechaParam <= hoyStr ? fechaParam : hoyStr)
+  // La fecha puede ser pasada, hoy o futura.
+  // - Si viene ?fecha=YYYY-MM-DD usar esa
+  // - Si viene ?semana=X&dia=Y (modoSemana) sin ?fecha=, usar hoy (compatibilidad vieja)
+  // - Si nada, usar hoy
+  const fecha = fechaParam && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam)
+    ? fechaParam
+    : hoyStr
   const esHoy = fecha === hoyStr
+  const esFuturo = fecha > hoyStr
 
   const [
     { rutina, fechaInicio, diaHoyNombre, semanaNumero, esDescanso, ejerciciosHoy, semana, hechos, bienestarHoy, calentamientoHoy, diaDelFecha },
@@ -336,15 +340,24 @@ export default async function RutinaHoyPage({ searchParams }: PageProps) {
   return (
     <div className="mx-auto max-w-lg md:max-w-2xl px-4 py-6 space-y-4">
 
-      {/* Botón volver (modo semana) o DateNav normal */}
-      {modoSemana ? (
-        <Link
-          href="/mi-rutina"
-          className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver a mi rutina
-        </Link>
+      {/* Botón volver (modo semana o fecha futura) o DateNav normal */}
+      {modoSemana || esFuturo ? (
+        <div className="space-y-2">
+          <Link
+            href="/mi-rutina"
+            className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver a mi rutina
+          </Link>
+          {esFuturo && (
+            <div className="rounded-xl bg-blue-50 ring-1 ring-blue-200 px-3 py-2">
+              <p className="text-xs text-blue-800">
+                <strong>Vista anticipada</strong> — estás viendo una sesión que todavía no llegó. Podés registrar tus valores si querés adelantarlos.
+              </p>
+            </div>
+          )}
+        </div>
       ) : (
         <DateNav fecha={fecha} />
       )}
