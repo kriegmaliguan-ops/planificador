@@ -48,6 +48,7 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
       descanso_segundos: Number(local.descanso_segundos) || null,
       intensidad: local.intensidad || null,
       metros_objetivo: local.metros_objetivo !== '' ? Number(local.metros_objetivo) : null,
+      rpe_objetivo: local.rpe_objetivo !== '' ? Number(local.rpe_objetivo) : null,
       notas: local.notas || null,
       modalidad: 'cardio',
     }
@@ -211,6 +212,20 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
               title="Distancia objetivo en metros (opcional)"
               className={`${inputClass} w-20`}
             />
+          </div>
+          <div className="text-center">
+            <p className="mb-1 text-xs text-slate-400">RPE obj.</p>
+            <select
+              value={local.rpe_objetivo}
+              onChange={(e) => setLocal((p) => ({ ...p, rpe_objetivo: e.target.value }))}
+              onBlur={handleBlurCardio}
+              className={`${inputClass} w-16`}
+            >
+              <option value="">—</option>
+              {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
           </div>
         </div>
         )}
@@ -421,6 +436,20 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
                 placeholder="Alta / FC 150 / Zona 2..."
                 className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
               />
+            </div>
+            <div className="col-span-2">
+              <label className="block mb-1 text-xs text-slate-500">RPE objetivo</label>
+              <select
+                value={local.rpe_objetivo}
+                onChange={(e) => setLocal((p) => ({ ...p, rpe_objetivo: e.target.value }))}
+                onBlur={handleBlurCardio}
+                className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+              >
+                <option value="">— Sin objetivo —</option>
+                {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>

@@ -137,6 +137,7 @@ export async function agregarEjercicioARutina({
   fc_objetivo_max,
   intensidad,
   metros_objetivo,
+  rpe_objetivo,
 }: {
   rutinaId: string
   diaId: string | null
@@ -160,6 +161,7 @@ export async function agregarEjercicioARutina({
   fc_objetivo_max?: number | null
   intensidad?: string | null
   metros_objetivo?: number | null
+  rpe_objetivo?: number | null
 }): Promise<{ error?: string; diaId?: string; ejercicioRutinaId?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -208,6 +210,7 @@ export async function agregarEjercicioARutina({
         fc_objetivo_max: fc_objetivo_max ?? null,
         intensidad: intensidad ?? null,
         metros_objetivo: metros_objetivo ?? null,
+        rpe_objetivo: rpe_objetivo ?? null,
       })
       .select('id')
       .single()

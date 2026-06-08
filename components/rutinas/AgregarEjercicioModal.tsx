@@ -61,6 +61,7 @@ export function AgregarEjercicioModal({
     descanso_segundos: '',
     intensidad: '',
     metros_objetivo: '',
+    rpe_objetivo: '',
   })
   const [error, setError] = useState<string | null>(null)
 
@@ -134,7 +135,7 @@ export function AgregarEjercicioModal({
     setGrupoFiltro(null)
     setSelectedIds(new Set())
     setParams({ series: 3, repeticiones: '10', peso: '', descanso: 90 })
-    setCardioParams({ series: 1, trabajo_segundos: '1800', descanso_intervalo_segundos: '', descanso_segundos: '', intensidad: '', metros_objetivo: '' })
+    setCardioParams({ series: 1, trabajo_segundos: '1800', descanso_intervalo_segundos: '', descanso_segundos: '', intensidad: '', metros_objetivo: '', rpe_objetivo: '' })
     setError(null)
     onClose()
   }
@@ -154,6 +155,7 @@ export function AgregarEjercicioModal({
           descanso_intervalo_segundos: cardioParams.descanso_intervalo_segundos !== '' ? Number(cardioParams.descanso_intervalo_segundos) : null,
           intensidad: cardioParams.intensidad || null,
           metros_objetivo: cardioParams.metros_objetivo !== '' ? Number(cardioParams.metros_objetivo) : null,
+          rpe_objetivo: cardioParams.rpe_objetivo !== '' ? Number(cardioParams.rpe_objetivo) : null,
         } : null
 
         const descansoCardio = esCardio && cardioParams.descanso_segundos !== ''
@@ -417,6 +419,19 @@ export function AgregarEjercicioModal({
                     className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
                     placeholder="FC 150-160 / Zona 2 / Alta / 75% FCmax..."
                   />
+                </div>
+                <div>
+                  <label className="block mb-1 text-xs text-slate-600">RPE objetivo (1-10)</label>
+                  <select
+                    value={cardioParams.rpe_objetivo}
+                    onChange={(e) => setCardioParams((p) => ({ ...p, rpe_objetivo: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                  >
+                    <option value="">— Sin objetivo —</option>
+                    {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
                 </div>
                 <p className="text-[10px] leading-relaxed text-rose-700/70">
                   Para LISS: 1 serie + tiempo total. Para HIIT: varias series con intervalo. Para Tabata: 8 series x 20s + 10s.
