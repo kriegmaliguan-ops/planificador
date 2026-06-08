@@ -128,6 +128,15 @@ export async function agregarEjercicioARutina({
   duracion_segundos,
   modalidad,
   agrupacion,
+  tipo_cardio,
+  duracion_total_segundos,
+  trabajo_segundos,
+  descanso_intervalo_segundos,
+  rondas,
+  fc_objetivo_min,
+  fc_objetivo_max,
+  intensidad,
+  metros_objetivo,
 }: {
   rutinaId: string
   diaId: string | null
@@ -142,6 +151,15 @@ export async function agregarEjercicioARutina({
   duracion_segundos?: number | null
   modalidad?: string
   agrupacion?: string | null
+  tipo_cardio?: 'liss' | 'hiit' | 'tabata' | 'tempo' | null
+  duracion_total_segundos?: number | null
+  trabajo_segundos?: number | null
+  descanso_intervalo_segundos?: number | null
+  rondas?: number | null
+  fc_objetivo_min?: number | null
+  fc_objetivo_max?: number | null
+  intensidad?: string | null
+  metros_objetivo?: number | null
 }): Promise<{ error?: string; diaId?: string; ejercicioRutinaId?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -181,6 +199,15 @@ export async function agregarEjercicioARutina({
         duracion_segundos: duracion_segundos ?? null,
         modalidad: modalidad ?? 'normal',
         agrupacion: agrupacion ?? null,
+        tipo_cardio: tipo_cardio ?? null,
+        duracion_total_segundos: duracion_total_segundos ?? null,
+        trabajo_segundos: trabajo_segundos ?? null,
+        descanso_intervalo_segundos: descanso_intervalo_segundos ?? null,
+        rondas: rondas ?? null,
+        fc_objetivo_min: fc_objetivo_min ?? null,
+        fc_objetivo_max: fc_objetivo_max ?? null,
+        intensidad: intensidad ?? null,
+        metros_objetivo: metros_objetivo ?? null,
       })
       .select('id')
       .single()
@@ -214,7 +241,7 @@ export async function reordenarEjercicios(
 export async function actualizarEjercicioRutina(
   id: string,
   alumnoId: string,
-  params: {
+  params: Partial<{
     series: number
     repeticiones: string
     peso_objetivo: number | null
@@ -222,9 +249,18 @@ export async function actualizarEjercicioRutina(
     duracion_segundos: number | null
     notas: string | null
     rpe_objetivo: number | null
-    modalidad?: string
-    agrupacion?: string | null
-  }
+    modalidad: string
+    agrupacion: string | null
+    tipo_cardio: 'liss' | 'hiit' | 'tabata' | 'tempo' | null
+    duracion_total_segundos: number | null
+    trabajo_segundos: number | null
+    descanso_intervalo_segundos: number | null
+    rondas: number | null
+    fc_objetivo_min: number | null
+    fc_objetivo_max: number | null
+    intensidad: string | null
+    metros_objetivo: number | null
+  }>
 ): Promise<void> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

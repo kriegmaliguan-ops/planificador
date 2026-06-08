@@ -2,7 +2,44 @@
 
 export type Modalidad =
   | 'normal' | 'biserie' | 'superserie' | 'triserie'
-  | 'drop_set' | 'rest_pause' | 'piramidal' | 'isometrica' | 'tempo'
+  | 'drop_set' | 'rest_pause' | 'piramidal' | 'isometrica' | 'tempo' | 'cardio'
+
+export type TipoCardio = 'liss' | 'hiit' | 'tabata' | 'tempo'
+
+export interface TipoCardioInfo {
+  label: string
+  descripcion: string
+  // Qué campos muestra/pide
+  pideDuracionTotal: boolean
+  pideIntervalos: boolean   // trabajo + descanso + rondas
+}
+
+export const TIPOS_CARDIO: Record<TipoCardio, TipoCardioInfo> = {
+  liss: {
+    label: 'Continuo (LISS)',
+    descripcion: 'Sesión sostenida a intensidad baja-moderada. Ideal para resistencia aeróbica y quema de grasa.',
+    pideDuracionTotal: true,
+    pideIntervalos: false,
+  },
+  hiit: {
+    label: 'Intervalos (HIIT)',
+    descripcion: 'Bloques de alta intensidad alternados con descansos cortos. Quema mucho en poco tiempo.',
+    pideDuracionTotal: false,
+    pideIntervalos: true,
+  },
+  tabata: {
+    label: 'Tabata',
+    descripcion: '8 rondas de 20s al máximo + 10s descanso. Total: 4 minutos de pura intensidad.',
+    pideDuracionTotal: false,
+    pideIntervalos: false, // preset 20/10 x8
+  },
+  tempo: {
+    label: 'Tempo / Threshold',
+    descripcion: 'Tramos largos a intensidad alta sostenida con descansos amplios. Mejora umbral aeróbico.',
+    pideDuracionTotal: false,
+    pideIntervalos: true,
+  },
+}
 
 export interface ModalidadInfo {
   label: string
@@ -84,6 +121,14 @@ export const MODALIDADES: Record<Modalidad, ModalidadInfo> = {
     emoji: '🎯',
     color: 'bg-emerald-100 text-emerald-700',
     descripcion: 'Controlá la cadencia del movimiento (mirá las notas para el ritmo exacto).',
+    necesitaAgrupacion: false,
+  },
+  cardio: {
+    label: 'Cardio',
+    short: 'Cardio',
+    emoji: '🫀',
+    color: 'bg-rose-100 text-rose-700',
+    descripcion: 'Trabajo cardiovascular. Mirá la prescripción del profe (tipo, FC objetivo, intervalos).',
     necesitaAgrupacion: false,
   },
 }

@@ -455,6 +455,7 @@ export function RutinaBuilder({
   calentamientosDisponibles = [],
   bloquesDisponibles = [],
 }: RutinaBuilderProps) {
+  const router = useRouter()
   const [rutina, setRutina] = useState<RutinaData | null>(rutinaInicial)
 
   // Restaurar semana/día activos desde sessionStorage para que sobrevivan a reloads
@@ -504,6 +505,8 @@ export function RutinaBuilder({
     agrupacion: string | null
     maxSeleccionados?: number
     titulo: string
+    esCardio?: boolean
+    grupoForzadoNombre?: string
   } | null>(null)
   // Drafts de grupos (biserie/superserie/triserie) creados localmente, esperando que se llenen
   const [drafts, setDrafts] = useState<Array<{
@@ -1221,6 +1224,23 @@ export function RutinaBuilder({
                       </button>
                     )
                   })}
+                  {/* Botón Cardio (modo especial: filtra grupo Cardio + form propio) */}
+                  <button
+                    onClick={() => {
+                      setAgregarConfig({
+                        modalidad: 'cardio',
+                        agrupacion: null,
+                        maxSeleccionados: 1,
+                        titulo: 'Agregar cardio',
+                        esCardio: true,
+                        grupoForzadoNombre: 'Cardio',
+                      })
+                      setAgregarOpen(true)
+                    }}
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors bg-rose-100 text-rose-700 hover:opacity-80"
+                  >
+                    🫀 Cardio
+                  </button>
                 </div>
               </div>
 
@@ -1311,6 +1331,8 @@ export function RutinaBuilder({
         agrupacionPre={agregarConfig?.agrupacion ?? null}
         maxSeleccionados={agregarConfig?.maxSeleccionados}
         tituloPersonalizado={agregarConfig?.titulo}
+        esCardio={agregarConfig?.esCardio ?? false}
+        grupoForzadoNombre={agregarConfig?.grupoForzadoNombre}
       />
 
       {/* Modal: Guardar día como bloque */}

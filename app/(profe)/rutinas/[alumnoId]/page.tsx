@@ -12,7 +12,7 @@ import type { EjercicioItem } from '@/app/(profe)/ejercicios/page'
 
 export type Modalidad =
   | 'normal' | 'biserie' | 'superserie' | 'triserie'
-  | 'drop_set' | 'rest_pause' | 'piramidal' | 'isometrica' | 'tempo'
+  | 'drop_set' | 'rest_pause' | 'piramidal' | 'isometrica' | 'tempo' | 'cardio'
 
 export interface EjercicioEnDia {
   id: string              // rutina_ejercicio.id
@@ -29,6 +29,16 @@ export interface EjercicioEnDia {
   rpe_objetivo: number | null
   modalidad: Modalidad
   agrupacion: string | null
+  // Cardio
+  tipo_cardio?: 'liss' | 'hiit' | 'tabata' | 'tempo' | null
+  duracion_total_segundos?: number | null
+  trabajo_segundos?: number | null
+  descanso_intervalo_segundos?: number | null
+  rondas?: number | null
+  fc_objetivo_min?: number | null
+  fc_objetivo_max?: number | null
+  intensidad?: string | null
+  metros_objetivo?: number | null
 }
 
 export interface EstadoDia {
@@ -78,7 +88,8 @@ async function getData(alumnoId: string) {
         dias:rutina_dias(
           id, dia_semana, nombre, orden, es_descanso, semana_numero, calentamiento_id,
           ejercicios:rutina_ejercicios(
-            id, ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, duracion_segundos, notas, rpe_objetivo, modalidad, agrupacion
+            id, ejercicio_id, orden, series, repeticiones, peso_objetivo, descanso_segundos, duracion_segundos, notas, rpe_objetivo, modalidad, agrupacion,
+            tipo_cardio, duracion_total_segundos, trabajo_segundos, descanso_intervalo_segundos, rondas, fc_objetivo_min, fc_objetivo_max, intensidad, metros_objetivo
           )
         )
       `)
@@ -169,6 +180,15 @@ async function getData(alumnoId: string) {
             rpe_objetivo: re.rpe_objetivo ?? null,
             modalidad: (re.modalidad ?? 'normal') as Modalidad,
             agrupacion: re.agrupacion ?? null,
+            tipo_cardio: re.tipo_cardio ?? null,
+            duracion_total_segundos: re.duracion_total_segundos ?? null,
+            trabajo_segundos: re.trabajo_segundos ?? null,
+            descanso_intervalo_segundos: re.descanso_intervalo_segundos ?? null,
+            rondas: re.rondas ?? null,
+            fc_objetivo_min: re.fc_objetivo_min ?? null,
+            fc_objetivo_max: re.fc_objetivo_max ?? null,
+            intensidad: re.intensidad ?? null,
+            metros_objetivo: re.metros_objetivo ?? null,
           }
         })
 

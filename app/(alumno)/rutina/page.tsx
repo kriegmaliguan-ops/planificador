@@ -113,6 +113,8 @@ async function getDatosDia(
         calentamiento:calentamientos(id, nombre, descripcion, duracion_minutos, video_url),
         ejercicios:rutina_ejercicios(
           id, orden, series, repeticiones, peso_objetivo, descanso_segundos, duracion_segundos, notas, rpe_objetivo, modalidad, agrupacion,
+          tipo_cardio, duracion_total_segundos, trabajo_segundos, descanso_intervalo_segundos, rondas, fc_objetivo_min, fc_objetivo_max,
+          intensidad, metros_objetivo,
           ejercicio:ejercicios(id, nombre, video_url, grupos:ejercicio_grupos(grupo:grupos_musculares(id, nombre)))
         )
       )
@@ -174,7 +176,7 @@ async function getDatosDia(
   if (rutinaEjerciciosIds.length > 0) {
     const { data: diaData } = await supabase
       .from('registros_progreso')
-      .select('rutina_ejercicio_id, series_completadas, repeticiones_realizadas, peso_utilizado, pesos_por_serie, rpe')
+      .select('rutina_ejercicio_id, series_completadas, repeticiones_realizadas, peso_utilizado, pesos_por_serie, rpe, notas, tiempo_real_segundos, fc_promedio, distancia_metros')
       .eq('alumno_id', alumnoId)
       .in('rutina_ejercicio_id', rutinaEjerciciosIds)
       .eq('fecha', fecha) as { data: any[] | null }
@@ -208,6 +210,15 @@ async function getDatosDia(
       rpe_objetivo: re.rpe_objetivo ?? null,
       modalidad: re.modalidad ?? 'normal',
       agrupacion: re.agrupacion ?? null,
+      tipo_cardio: re.tipo_cardio ?? null,
+      duracion_total_segundos: re.duracion_total_segundos ?? null,
+      trabajo_segundos: re.trabajo_segundos ?? null,
+      descanso_intervalo_segundos: re.descanso_intervalo_segundos ?? null,
+      rondas: re.rondas ?? null,
+      fc_objetivo_min: re.fc_objetivo_min ?? null,
+      fc_objetivo_max: re.fc_objetivo_max ?? null,
+      intensidad: re.intensidad ?? null,
+      metros_objetivo: re.metros_objetivo ?? null,
       ultimoPeso: ultimosRegistros[re.id]?.peso ?? null,
       ultimasReps: ultimosRegistros[re.id]?.reps ?? null,
       registroHoy: registrosDia[re.id] ?? null,

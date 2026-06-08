@@ -31,7 +31,30 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
     rpe_objetivo: ejercicio.rpe_objetivo ?? '',
     modalidad: ejercicio.modalidad ?? 'normal',
     agrupacion: ejercicio.agrupacion ?? '',
+    // Cardio
+    trabajo_segundos: ejercicio.trabajo_segundos ?? '',
+    descanso_intervalo_segundos: ejercicio.descanso_intervalo_segundos ?? '',
+    intensidad: ejercicio.intensidad ?? '',
+    metros_objetivo: ejercicio.metros_objetivo ?? '',
   })
+
+  const esCardio = ejercicio.modalidad === 'cardio'
+
+  function handleBlurCardio() {
+    const payload = {
+      series: Number(local.series) || 1,
+      trabajo_segundos: local.trabajo_segundos !== '' ? Number(local.trabajo_segundos) : null,
+      descanso_intervalo_segundos: local.descanso_intervalo_segundos !== '' ? Number(local.descanso_intervalo_segundos) : null,
+      intensidad: local.intensidad || null,
+      metros_objetivo: local.metros_objetivo !== '' ? Number(local.metros_objetivo) : null,
+      notas: local.notas || null,
+      modalidad: 'cardio',
+    }
+    startTransition(async () => {
+      await actualizarEjercicioRutina(ejercicio.id, alumnoId, payload)
+      onUpdate(ejercicio.id, payload as any)
+    })
+  }
 
   function handleBlur() {
     const payload = {
@@ -75,6 +98,7 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
     : ejercicio.modalidad === 'piramidal' ? 'border-l-4 border-l-orange-400 border border-slate-200'
     : ejercicio.modalidad === 'isometrica' ? 'border-l-4 border-l-cyan-400 border border-slate-200'
     : ejercicio.modalidad === 'tempo' ? 'border-l-4 border-l-emerald-400 border border-slate-200'
+    : ejercicio.modalidad === 'cardio' ? 'border-l-4 border-l-rose-400 border border-slate-200'
     : 'border-slate-200'
 
   return (
@@ -105,7 +129,79 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
           )}
         </div>
 
-        {/* Campos compactos */}
+        {/* Campos compactos para cardio */}
+        {esCardio && (
+        <div className="hidden sm:flex items-center gap-2">
+          <div className="text-center">
+            <p className="mb-1 text-xs text-slate-400">Series</p>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={local.series}
+              onChange={(e) => setLocal((p) => ({ ...p, series: Number(e.target.value) }))}
+              onBlur={handleBlurCardio}
+              className={`${inputClass} w-14`}
+            />
+          </div>
+          <div className="text-center">
+            <p className="mb-1 text-xs text-slate-400">Tiempo (s)</p>
+            <input
+              type="number"
+              min={0}
+              step={5}
+              value={local.trabajo_segundos}
+              onChange={(e) => setLocal((p) => ({ ...p, trabajo_segundos: e.target.value as any }))}
+              onBlur={handleBlurCardio}
+              placeholder="—"
+              title="Duración de cada serie/ronda en segundos"
+              className={`${inputClass} w-16`}
+            />
+          </div>
+          <div className="text-center">
+            <p className="mb-1 text-xs text-slate-400">Intervalo (s)</p>
+            <input
+              type="number"
+              min={0}
+              step={5}
+              value={local.descanso_intervalo_segundos}
+              onChange={(e) => setLocal((p) => ({ ...p, descanso_intervalo_segundos: e.target.value as any }))}
+              onBlur={handleBlurCardio}
+              placeholder="—"
+              title="Descanso entre series/rondas (segundos)"
+              className={`${inputClass} w-16`}
+            />
+          </div>
+          <div className="text-center">
+            <p className="mb-1 text-xs text-slate-400">Intensidad</p>
+            <input
+              type="text"
+              value={local.intensidad}
+              onChange={(e) => setLocal((p) => ({ ...p, intensidad: e.target.value }))}
+              onBlur={handleBlurCardio}
+              placeholder="Alta / FC 150"
+              title="Intensidad: FC, %FCmax, RPE, o palabras (suave/moderada/alta)"
+              className={`${inputClass} w-24`}
+            />
+          </div>
+          <div className="text-center">
+            <p className="mb-1 text-xs text-slate-400">Metros</p>
+            <input
+              type="number"
+              min={0}
+              value={local.metros_objetivo}
+              onChange={(e) => setLocal((p) => ({ ...p, metros_objetivo: e.target.value as any }))}
+              onBlur={handleBlurCardio}
+              placeholder="—"
+              title="Distancia objetivo en metros (opcional)"
+              className={`${inputClass} w-20`}
+            />
+          </div>
+        </div>
+        )}
+
+        {/* Campos compactos — fuerza/normal */}
+        {!esCardio && (
         <div className="hidden sm:flex items-center gap-2">
           <div className="text-center">
             <p className="mb-1 text-xs text-slate-400">Series</p>
@@ -188,6 +284,7 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
             </select>
           </div>
         </div>
+        )}
 
         {/* Acciones */}
         <div className="flex items-center gap-1">
@@ -233,8 +330,77 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
         </div>
       </div>
 
-      {/* Fila expandida (móvil) + notas */}
-      {(expanded) && (
+      {/* Fila expandida (móvil cardio) */}
+      {esCardio && (expanded) && (
+        <div className="border-t border-slate-100 px-4 py-3 sm:hidden">
+          <p className="mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wide truncate">
+            {ejercicio.nombre || '(sin nombre)'} — Cardio
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block mb-1 text-xs text-slate-500">Series</label>
+              <input
+                type="number"
+                min={1}
+                value={local.series}
+                onChange={(e) => setLocal((p) => ({ ...p, series: Number(e.target.value) }))}
+                onBlur={handleBlurCardio}
+                className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-xs text-slate-500">Tiempo (s)</label>
+              <input
+                type="number"
+                min={0}
+                value={local.trabajo_segundos}
+                onChange={(e) => setLocal((p) => ({ ...p, trabajo_segundos: e.target.value as any }))}
+                onBlur={handleBlurCardio}
+                placeholder="—"
+                className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-xs text-slate-500">Intervalo (s)</label>
+              <input
+                type="number"
+                min={0}
+                value={local.descanso_intervalo_segundos}
+                onChange={(e) => setLocal((p) => ({ ...p, descanso_intervalo_segundos: e.target.value as any }))}
+                onBlur={handleBlurCardio}
+                placeholder="—"
+                className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-xs text-slate-500">Metros</label>
+              <input
+                type="number"
+                min={0}
+                value={local.metros_objetivo}
+                onChange={(e) => setLocal((p) => ({ ...p, metros_objetivo: e.target.value as any }))}
+                onBlur={handleBlurCardio}
+                placeholder="—"
+                className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block mb-1 text-xs text-slate-500">Intensidad</label>
+              <input
+                type="text"
+                value={local.intensidad}
+                onChange={(e) => setLocal((p) => ({ ...p, intensidad: e.target.value }))}
+                onBlur={handleBlurCardio}
+                placeholder="Alta / FC 150 / Zona 2..."
+                className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fila expandida (móvil) + notas — solo si NO es cardio */}
+      {!esCardio && (expanded) && (
         <div className="border-t border-slate-100 px-4 py-3 sm:hidden">
           <p className="mb-3 text-xs font-semibold text-slate-500 uppercase tracking-wide truncate">
             {ejercicio.nombre || '(sin nombre)'}

@@ -95,6 +95,19 @@ export interface RutinaEjercicio {
   descanso_segundos: number | null
   notas: string | null
   rpe_objetivo: number | null
+  modalidad?: string | null
+  agrupacion?: string | null
+  duracion_segundos?: number | null
+  // Cardio
+  tipo_cardio?: 'liss' | 'hiit' | 'tabata' | 'tempo' | null
+  duracion_total_segundos?: number | null
+  trabajo_segundos?: number | null
+  descanso_intervalo_segundos?: number | null
+  rondas?: number | null
+  fc_objetivo_min?: number | null
+  fc_objetivo_max?: number | null
+  intensidad?: string | null
+  metros_objetivo?: number | null
 }
 
 export interface RegistroProgreso {
@@ -108,6 +121,10 @@ export interface RegistroProgreso {
   rpe: number | null
   notas: string | null
   created_at: string
+  // Cardio
+  tiempo_real_segundos?: number | null
+  fc_promedio?: number | null
+  distancia_metros?: number | null
 }
 
 // ── Tipos extendidos (con joins) ───────────────────────────────────────────

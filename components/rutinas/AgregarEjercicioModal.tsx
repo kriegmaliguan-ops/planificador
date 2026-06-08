@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useEffect } from 'react'
 import { Search, Check, Plus, X } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -28,6 +28,8 @@ interface AgregarEjercicioModalProps {
   agrupacionPre?: string | null     // letra de agrupación (para biserie/superserie/triserie)
   maxSeleccionados?: number         // si es 1, fuerza single-select
   tituloPersonalizado?: string      // header del modal
+  esCardio?: boolean                 // modo cardio: filtro grupo Cardio + form de config
+  grupoForzadoNombre?: string        // si se pasa, filtra automaticamente por ese grupo (case-insensitive)
 }
 
 export function AgregarEjercicioModal({
@@ -44,13 +46,39 @@ export function AgregarEjercicioModal({
   agrupacionPre = null,
   maxSeleccionados,
   tituloPersonalizado,
+  esCardio = false,
+  grupoForzadoNombre,
 }: AgregarEjercicioModalProps) {
   const [isPending, startTransition] = useTransition()
   const [search, setSearch] = useState('')
   const [grupoFiltro, setGrupoFiltro] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [params, setParams] = useState({ series: 3, repeticiones: '10', peso: '', descanso: 90 })
+  const [cardioParams, setCardioParams] = useState({
+    series: 1,
+    trabajo_segundos: '1800',  // 30 min por defecto
+    descanso_intervalo_segundos: '',
+    intensidad: '',
+    metros_objetivo: '',
+  })
   const [error, setError] = useState<string | null>(null)
+
+  // Si esCardio o pasaron grupoForzadoNombre, prefiltrar al abrir
+  useEffect(() => {
+    if (!open) return
+    const buscarNombre = grupoForzadoNombre ?? (esCardio ? 'cardio' : null)
+    if (!buscarNombre) return
+    // Buscar el id del grupo por nombre (case-insensitive)
+    const lower = buscarNombre.toLowerCase()
+    for (const ej of ejerciciosLib) {
+      for (const g of ej.grupos) {
+        if (g.nombre.toLowerCase() === lower) {
+          setGrupoFiltro(g.id)
+          return
+        }
+      }
+    }
+  }, [open, esCardio, grupoForzadoNombre, ejerciciosLib])
 
   const yaEnDia = new Set(diaActual.ejercicios.map((e) => e.ejercicio_id))
 
@@ -105,6 +133,7 @@ export function AgregarEjercicioModal({
     setGrupoFiltro(null)
     setSelectedIds(new Set())
     setParams({ series: 3, repeticiones: '10', peso: '', descanso: 90 })
+    setCardioParams({ series: 1, trabajo_segundos: '1800', descanso_intervalo_segundos: '', intensidad: '', metros_objetivo: '' })
     setError(null)
     onClose()
   }
@@ -119,6 +148,13 @@ export function AgregarEjercicioModal({
       const added: EjercicioEnDia[] = []
 
       for (const ej of selectedItems) {
+        const cardioPayload = esCardio ? {
+          trabajo_segundos: cardioParams.trabajo_segundos !== '' ? Number(cardioParams.trabajo_segundos) : null,
+          descanso_intervalo_segundos: cardioParams.descanso_intervalo_segundos !== '' ? Number(cardioParams.descanso_intervalo_segundos) : null,
+          intensidad: cardioParams.intensidad || null,
+          metros_objetivo: cardioParams.metros_objetivo !== '' ? Number(cardioParams.metros_objetivo) : null,
+        } : null
+
         const result = await agregarEjercicioARutina({
           rutinaId,
           diaId: finalDiaId,
@@ -126,12 +162,13 @@ export function AgregarEjercicioModal({
           semanaNumero,
           alumnoId,
           ejercicioId: ej.id,
-          series: Number(params.series) || 3,
-          repeticiones: params.repeticiones || '10',
-          peso_objetivo: params.peso ? Number(params.peso) : null,
-          descanso_segundos: Number(params.descanso) || 90,
-          modalidad: modalidadPre,
-          agrupacion: agrupacionPre,
+          series: esCardio ? (Number(cardioParams.series) || 1) : (Number(params.series) || 3),
+          repeticiones: esCardio ? '—' : (params.repeticiones || '10'),
+          peso_objetivo: esCardio ? null : (params.peso ? Number(params.peso) : null),
+          descanso_segundos: esCardio ? 0 : (Number(params.descanso) || 90),
+          modalidad: esCardio ? 'cardio' : modalidadPre,
+          agrupacion: esCardio ? null : agrupacionPre,
+          ...(cardioPayload ?? {}),
         })
         if (result.error) { setError(result.error); return }
         finalDiaId = result.diaId!
@@ -141,16 +178,17 @@ export function AgregarEjercicioModal({
           nombre: ej.nombre,
           grupos: ej.grupos,
           orden: diaActual.ejercicios.length + added.length,
-          series: Number(params.series) || 3,
-          repeticiones: params.repeticiones || '10',
-          peso_objetivo: params.peso ? Number(params.peso) : null,
-          descanso_segundos: Number(params.descanso) || 90,
+          series: esCardio ? (Number(cardioParams.series) || 1) : (Number(params.series) || 3),
+          repeticiones: esCardio ? '—' : (params.repeticiones || '10'),
+          peso_objetivo: esCardio ? null : (params.peso ? Number(params.peso) : null),
+          descanso_segundos: esCardio ? 0 : (Number(params.descanso) || 90),
           duracion_segundos: null,
           notas: null,
           rpe_objetivo: null,
-          modalidad: (modalidadPre ?? 'normal') as any,
-          agrupacion: agrupacionPre ?? null,
-        })
+          modalidad: (esCardio ? 'cardio' : (modalidadPre ?? 'normal')) as any,
+          agrupacion: esCardio ? null : (agrupacionPre ?? null),
+          ...(cardioPayload ?? {}),
+        } as any)
       }
 
       onAgregado(finalDiaId!, added)
@@ -300,26 +338,92 @@ export function AgregarEjercicioModal({
         {selectedIds.size > 0 && (
           <form onSubmit={handleSubmit} className="space-y-3">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Parámetros para {selectedIds.size === 1 ? `"${selectedItems[0]?.nombre}"` : `los ${selectedIds.size} ejercicios`}
+              {esCardio ? `Cardio: "${selectedItems[0]?.nombre}"` : `Parámetros para ${selectedIds.size === 1 ? `"${selectedItems[0]?.nombre}"` : `los ${selectedIds.size} ejercicios`}`}
             </p>
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { label: 'Series', key: 'series', type: 'number', min: 1, placeholder: '3' },
-                { label: 'Reps', key: 'repeticiones', type: 'text', placeholder: '10' },
-                { label: 'Peso kg', key: 'peso', type: 'number', min: 0, step: 0.5, placeholder: '—' },
-                { label: 'Desc. s', key: 'descanso', type: 'number', min: 0, step: 15, placeholder: '90' },
-              ].map(({ label, key, ...rest }) => (
-                <div key={key} className="text-center">
-                  <label className="block mb-1 text-xs text-slate-500">{label}</label>
+
+            {esCardio ? (
+              <div className="space-y-3 rounded-xl border border-rose-200 bg-rose-50/50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-rose-700">🫀 Parámetros de cardio</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block mb-1 text-xs text-slate-600">Series</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={cardioParams.series}
+                      onChange={(e) => setCardioParams((p) => ({ ...p, series: Number(e.target.value) }))}
+                      className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-center outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                      placeholder="1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-xs text-slate-600">Tiempo por serie (s)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={cardioParams.trabajo_segundos}
+                      onChange={(e) => setCardioParams((p) => ({ ...p, trabajo_segundos: e.target.value }))}
+                      className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-center outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                      placeholder="1800 = 30 min"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-xs text-slate-600">Intervalo entre series (s)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={cardioParams.descanso_intervalo_segundos}
+                      onChange={(e) => setCardioParams((p) => ({ ...p, descanso_intervalo_segundos: e.target.value }))}
+                      className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-center outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                      placeholder="—"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-xs text-slate-600">Metros (opcional)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={cardioParams.metros_objetivo}
+                      onChange={(e) => setCardioParams((p) => ({ ...p, metros_objetivo: e.target.value }))}
+                      className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-center outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                      placeholder="—"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block mb-1 text-xs text-slate-600">Intensidad</label>
                   <input
-                    {...rest}
-                    value={(params as any)[key]}
-                    onChange={(e) => setParams((p) => ({ ...p, [key]: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                    type="text"
+                    value={cardioParams.intensidad}
+                    onChange={(e) => setCardioParams((p) => ({ ...p, intensidad: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                    placeholder="FC 150-160 / Zona 2 / Alta / 75% FCmax..."
                   />
                 </div>
-              ))}
-            </div>
+                <p className="text-[10px] leading-relaxed text-rose-700/70">
+                  Para LISS: 1 serie + tiempo total. Para HIIT: varias series con intervalo. Para Tabata: 8 series x 20s + 10s.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { label: 'Series', key: 'series', type: 'number', min: 1, placeholder: '3' },
+                  { label: 'Reps', key: 'repeticiones', type: 'text', placeholder: '10' },
+                  { label: 'Peso kg', key: 'peso', type: 'number', min: 0, step: 0.5, placeholder: '—' },
+                  { label: 'Desc. s', key: 'descanso', type: 'number', min: 0, step: 15, placeholder: '90' },
+                ].map(({ label, key, ...rest }) => (
+                  <div key={key} className="text-center">
+                    <label className="block mb-1 text-xs text-slate-500">{label}</label>
+                    <input
+                      {...rest}
+                      value={(params as any)[key]}
+                      onChange={(e) => setParams((p) => ({ ...p, [key]: e.target.value }))}
+                      className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-center outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
 
             {error && (
               <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
@@ -332,7 +436,9 @@ export function AgregarEjercicioModal({
               <Button type="submit" loading={isPending} className="flex-1">
                 {isPending
                   ? 'Agregando...'
-                  : `Agregar ${selectedIds.size === 1 ? 'ejercicio' : `${selectedIds.size} ejercicios`}`}
+                  : esCardio
+                    ? 'Agregar cardio'
+                    : `Agregar ${selectedIds.size === 1 ? 'ejercicio' : `${selectedIds.size} ejercicios`}`}
               </Button>
             </div>
           </form>

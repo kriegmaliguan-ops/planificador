@@ -13,6 +13,9 @@ export async function registrarProgreso(data: {
   rpe: number | null
   notas: string | null
   fecha?: string
+  tiempo_real_segundos?: number | null
+  fc_promedio?: number | null
+  distancia_metros?: number | null
 }): Promise<{ error?: string; success?: boolean }> {
   const supabase = await createClient()
 
@@ -44,6 +47,9 @@ export async function registrarProgreso(data: {
   if (data.pesos_por_serie && data.pesos_por_serie.length > 0) {
     payload.pesos_por_serie = data.pesos_por_serie
   }
+  if (data.tiempo_real_segundos !== undefined) payload.tiempo_real_segundos = data.tiempo_real_segundos
+  if (data.fc_promedio !== undefined) payload.fc_promedio = data.fc_promedio
+  if (data.distancia_metros !== undefined) payload.distancia_metros = data.distancia_metros
 
   if (existente) {
     const { error } = await (supabase.from('registros_progreso') as any)

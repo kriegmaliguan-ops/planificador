@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { CheckCircle2, ChevronDown, ChevronUp, Clock, PlayCircle, Trash2 } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronUp, Clock, Heart, PlayCircle, Trash2 } from 'lucide-react'
 import { grupoColor, rpeButtonColor, RPE_CONFIG } from '@/lib/utils'
 import { eliminarProgreso } from '@/app/(alumno)/rutina/actions'
 import { offlineWrite } from '@/lib/offline-write'
 import { MODALIDADES, type Modalidad } from '@/lib/modalidades'
+import { formatCardioPrescripcion } from '@/components/rutinas/CardioConfigForm'
 import type { GrupoMuscular } from '@/lib/types/database'
 
 export interface EjercicioHoyData {
@@ -22,6 +23,16 @@ export interface EjercicioHoyData {
   rpe_objetivo: number | null
   modalidad: string
   agrupacion: string | null
+  // Cardio
+  tipo_cardio?: 'liss' | 'hiit' | 'tabata' | 'tempo' | null
+  duracion_total_segundos?: number | null
+  trabajo_segundos?: number | null
+  descanso_intervalo_segundos?: number | null
+  rondas?: number | null
+  fc_objetivo_min?: number | null
+  fc_objetivo_max?: number | null
+  intensidad?: string | null
+  metros_objetivo?: number | null
   ultimoPeso: number | null
   ultimasReps: string | null
   registroHoy: {
@@ -30,6 +41,10 @@ export interface EjercicioHoyData {
     peso_utilizado: number | null
     pesos_por_serie?: (number | null)[] | null
     rpe: number | null
+    tiempo_real_segundos?: number | null
+    fc_promedio?: number | null
+    distancia_metros?: number | null
+    notas?: string | null
   } | null
 }
 
@@ -84,7 +99,25 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
     pesos: initPesos(ejercicio),
     repsArray: initReps(ejercicio),
     rpe: ejercicio.registroHoy?.rpe ?? '' as number | '',
-    notas: '',
+    notas: ejercicio.registroHoy?.notas ?? '',
+  })
+
+  const esCardio = ejercicio.modalidad === 'cardio'
+
+  // ── Form state específico para cardio
+  // Tiempo sugerido = series * (trabajo + intervalo) — del nuevo modelo
+  const seriesCardio = ejercicio.series ?? ejercicio.rondas ?? 1
+  const tiempoSugerido = ejercicio.trabajo_segundos
+    ? seriesCardio * (ejercicio.trabajo_segundos + (ejercicio.descanso_intervalo_segundos ?? 0))
+    : ejercicio.duracion_total_segundos ?? null
+  const [cardioForm, setCardioForm] = useState({
+    tiempo_min: ejercicio.registroHoy?.tiempo_real_segundos != null
+      ? String(Math.round(ejercicio.registroHoy.tiempo_real_segundos / 60))
+      : (tiempoSugerido ? String(Math.round(tiempoSugerido / 60)) : ''),
+    fc_promedio: ejercicio.registroHoy?.fc_promedio != null ? String(ejercicio.registroHoy.fc_promedio) : '',
+    distancia_metros: ejercicio.registroHoy?.distancia_metros != null
+      ? String(ejercicio.registroHoy.distancia_metros)
+      : (ejercicio.metros_objetivo ? String(ejercicio.metros_objetivo) : ''),
   })
 
   // Sincronizar largo de arrays cuando cambia series
@@ -175,7 +208,34 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
     : ejercicio.modalidad === 'piramidal' ? 'border-l-4 border-l-orange-400'
     : ejercicio.modalidad === 'isometrica' ? 'border-l-4 border-l-cyan-400'
     : ejercicio.modalidad === 'tempo' ? 'border-l-4 border-l-emerald-400'
+    : ejercicio.modalidad === 'cardio' ? 'border-l-4 border-l-rose-400'
     : ''
+
+  function handleGuardarCardio(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    startTransition(async () => {
+      const result = await offlineWrite('registrarProgreso', {
+        rutinaEjercicioId: ejercicio.rutinaEjercicioId,
+        seriesCompletadas: 1,
+        repeticionesRealizadas: '—',
+        pesoUtilizado: null,
+        pesos_por_serie: [],
+        rpe: form.rpe !== '' ? Number(form.rpe) : null,
+        notas: form.notas || null,
+        fecha,
+        tiempo_real_segundos: cardioForm.tiempo_min ? Math.round(Number(cardioForm.tiempo_min) * 60) : null,
+        fc_promedio: cardioForm.fc_promedio ? Number(cardioForm.fc_promedio) : null,
+        distancia_metros: cardioForm.distancia_metros ? Number(cardioForm.distancia_metros) : null,
+      })
+      if (!result.ok) {
+        setError(result.error ?? 'Error al guardar')
+      } else {
+        setGuardado(true)
+        setExpandido(false)
+      }
+    })
+  }
 
   return (
     <div className={`overflow-hidden rounded-2xl bg-white shadow-sm ring-1 transition-all ${modalidadBorder} ${
@@ -235,14 +295,20 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           )}
-          <div className="flex flex-col items-end gap-1">
-            <span className="text-sm font-semibold text-slate-700">
-              {ejercicio.series}×{ejercicio.duracion_segundos
-                ? formatDuracion(ejercicio.duracion_segundos)
-                : ejercicio.repeticiones}
-              {ejercicio.peso_objetivo ? ` · ${ejercicio.peso_objetivo}kg` : ''}
-              {ejercicio.rpe_objetivo ? ` · RPE ${ejercicio.rpe_objetivo}` : ''}
-            </span>
+          <div className="flex flex-col items-end gap-1 text-right">
+            {esCardio ? (
+              <span className="text-xs font-semibold text-rose-600 max-w-[200px] leading-tight">
+                {formatCardioPrescripcion(ejercicio) || 'Cardio'}
+              </span>
+            ) : (
+              <span className="text-sm font-semibold text-slate-700">
+                {ejercicio.series}×{ejercicio.duracion_segundos
+                  ? formatDuracion(ejercicio.duracion_segundos)
+                  : ejercicio.repeticiones}
+                {ejercicio.peso_objetivo ? ` · ${ejercicio.peso_objetivo}kg` : ''}
+                {ejercicio.rpe_objetivo ? ` · RPE ${ejercicio.rpe_objetivo}` : ''}
+              </span>
+            )}
             {guardado && !expandido && (
               <span className="text-xs text-emerald-600 font-medium">Registrado ✓</span>
             )}
@@ -255,8 +321,109 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
         </div>
       </button>
 
-      {/* Panel expandido */}
-      {expandido && (
+      {/* Panel expandido — cardio */}
+      {expandido && esCardio && (
+        <div className="border-t border-slate-100 px-4 pb-4 pt-3">
+          {/* Aviso prescripción cardio */}
+          <div className="mb-4 rounded-xl bg-rose-50 p-3 ring-1 ring-rose-200">
+            <p className="text-xs font-bold text-rose-700 flex items-center gap-1">
+              <Heart className="h-3.5 w-3.5" />
+              {formatCardioPrescripcion(ejercicio) || 'Cardio'}
+            </p>
+            {ejercicio.notas && (
+              <p className="mt-1 text-xs text-rose-700/80 italic">"{ejercicio.notas}"</p>
+            )}
+          </div>
+
+          <form onSubmit={handleGuardarCardio} className="space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block mb-1 text-xs font-medium text-slate-700">Tiempo (min)</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={cardioForm.tiempo_min}
+                  onChange={(e) => setCardioForm((p) => ({ ...p, tiempo_min: e.target.value }))}
+                  placeholder="30"
+                  className="w-full rounded-xl border border-slate-200 px-2 py-2.5 text-center text-base font-bold text-slate-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-xs font-medium text-slate-700">FC prom (bpm)</label>
+                <input
+                  type="number"
+                  min={40}
+                  max={220}
+                  value={cardioForm.fc_promedio}
+                  onChange={(e) => setCardioForm((p) => ({ ...p, fc_promedio: e.target.value }))}
+                  placeholder="140"
+                  className="w-full rounded-xl border border-slate-200 px-2 py-2.5 text-center text-base font-bold text-slate-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-xs font-medium text-slate-700">Distancia (m)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={cardioForm.distancia_metros}
+                  onChange={(e) => setCardioForm((p) => ({ ...p, distancia_metros: e.target.value }))}
+                  placeholder="—"
+                  className="w-full rounded-xl border border-slate-200 px-2 py-2.5 text-center text-base font-bold text-slate-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                />
+              </div>
+            </div>
+
+            {/* RPE */}
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="text-xs font-medium text-slate-700">
+                  RPE percibido <span className="text-slate-400">· opcional</span>
+                </label>
+                {form.rpe !== '' && (
+                  <span className="text-xs font-semibold text-slate-600">
+                    {RPE_CONFIG[Number(form.rpe)]?.label}
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-5 gap-1.5">
+                {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setForm((p) => ({ ...p, rpe: p.rpe === n ? '' : n }))}
+                    className={`rounded-lg py-2 text-sm font-bold transition-colors ${rpeButtonColor(n, form.rpe === n)}`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <input
+              type="text"
+              value={form.notas}
+              onChange={(e) => setForm((p) => ({ ...p, notas: e.target.value }))}
+              placeholder="Notas opcionales..."
+              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+            />
+
+            {error && (
+              <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={isPending}
+              className="w-full rounded-xl bg-rose-600 py-3.5 text-sm font-bold text-white transition-colors hover:bg-rose-500 active:bg-rose-700 disabled:opacity-50"
+            >
+              {isPending ? 'Guardando...' : guardado ? 'Actualizar cardio' : '✓ Registrar cardio'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Panel expandido — fuerza/normal */}
+      {expandido && !esCardio && (
         <div className="border-t border-slate-100 px-4 pb-4">
           {/* Aviso de modalidad si es especial */}
           {ejercicio.modalidad && ejercicio.modalidad !== 'normal' && MODALIDADES[ejercicio.modalidad as Modalidad] && (
