@@ -58,6 +58,7 @@ export function AgregarEjercicioModal({
     series: 1,
     trabajo_segundos: '1800',  // 30 min por defecto
     descanso_intervalo_segundos: '',
+    descanso_segundos: '',
     intensidad: '',
     metros_objetivo: '',
   })
@@ -133,7 +134,7 @@ export function AgregarEjercicioModal({
     setGrupoFiltro(null)
     setSelectedIds(new Set())
     setParams({ series: 3, repeticiones: '10', peso: '', descanso: 90 })
-    setCardioParams({ series: 1, trabajo_segundos: '1800', descanso_intervalo_segundos: '', intensidad: '', metros_objetivo: '' })
+    setCardioParams({ series: 1, trabajo_segundos: '1800', descanso_intervalo_segundos: '', descanso_segundos: '', intensidad: '', metros_objetivo: '' })
     setError(null)
     onClose()
   }
@@ -155,6 +156,10 @@ export function AgregarEjercicioModal({
           metros_objetivo: cardioParams.metros_objetivo !== '' ? Number(cardioParams.metros_objetivo) : null,
         } : null
 
+        const descansoCardio = esCardio && cardioParams.descanso_segundos !== ''
+          ? Number(cardioParams.descanso_segundos)
+          : null
+
         const result = await agregarEjercicioARutina({
           rutinaId,
           diaId: finalDiaId,
@@ -165,7 +170,7 @@ export function AgregarEjercicioModal({
           series: esCardio ? (Number(cardioParams.series) || 1) : (Number(params.series) || 3),
           repeticiones: esCardio ? '—' : (params.repeticiones || '10'),
           peso_objetivo: esCardio ? null : (params.peso ? Number(params.peso) : null),
-          descanso_segundos: esCardio ? 0 : (Number(params.descanso) || 90),
+          descanso_segundos: esCardio ? (descansoCardio ?? 0) : (Number(params.descanso) || 90),
           modalidad: esCardio ? 'cardio' : modalidadPre,
           agrupacion: esCardio ? null : agrupacionPre,
           ...(cardioPayload ?? {}),
@@ -181,7 +186,7 @@ export function AgregarEjercicioModal({
           series: esCardio ? (Number(cardioParams.series) || 1) : (Number(params.series) || 3),
           repeticiones: esCardio ? '—' : (params.repeticiones || '10'),
           peso_objetivo: esCardio ? null : (params.peso ? Number(params.peso) : null),
-          descanso_segundos: esCardio ? 0 : (Number(params.descanso) || 90),
+          descanso_segundos: esCardio ? (descansoCardio ?? 0) : (Number(params.descanso) || 90),
           duracion_segundos: null,
           notas: null,
           rpe_objetivo: null,
@@ -376,6 +381,19 @@ export function AgregarEjercicioModal({
                       onChange={(e) => setCardioParams((p) => ({ ...p, descanso_intervalo_segundos: e.target.value }))}
                       className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-center outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
                       placeholder="—"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-xs text-slate-600">Descanso final (s)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={15}
+                      value={cardioParams.descanso_segundos}
+                      onChange={(e) => setCardioParams((p) => ({ ...p, descanso_segundos: e.target.value }))}
+                      className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-center outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                      placeholder="—"
+                      title="Descanso después de terminar todo el bloque de cardio"
                     />
                   </div>
                   <div>

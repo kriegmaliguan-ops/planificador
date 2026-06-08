@@ -45,6 +45,7 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
       series: Number(local.series) || 1,
       trabajo_segundos: local.trabajo_segundos !== '' ? Number(local.trabajo_segundos) : null,
       descanso_intervalo_segundos: local.descanso_intervalo_segundos !== '' ? Number(local.descanso_intervalo_segundos) : null,
+      descanso_segundos: Number(local.descanso_segundos) || null,
       intensidad: local.intensidad || null,
       metros_objetivo: local.metros_objetivo !== '' ? Number(local.metros_objetivo) : null,
       notas: local.notas || null,
@@ -169,6 +170,20 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
               onBlur={handleBlurCardio}
               placeholder="—"
               title="Descanso entre series/rondas (segundos)"
+              className={`${inputClass} w-16`}
+            />
+          </div>
+          <div className="text-center">
+            <p className="mb-1 text-xs text-slate-400">Descanso (s)</p>
+            <input
+              type="number"
+              min={0}
+              step={15}
+              value={local.descanso_segundos}
+              onChange={(e) => setLocal((p) => ({ ...p, descanso_segundos: Number(e.target.value) }))}
+              onBlur={handleBlurCardio}
+              placeholder="—"
+              title="Descanso después de terminar el bloque de cardio (segundos)"
               className={`${inputClass} w-16`}
             />
           </div>
@@ -367,6 +382,18 @@ export function EjercicioDiaRow({ ejercicio, alumnoId, isFirst, isLast, onMoveUp
                 min={0}
                 value={local.descanso_intervalo_segundos}
                 onChange={(e) => setLocal((p) => ({ ...p, descanso_intervalo_segundos: e.target.value as any }))}
+                onBlur={handleBlurCardio}
+                placeholder="—"
+                className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-xs text-slate-500">Descanso (s)</label>
+              <input
+                type="number"
+                min={0}
+                value={local.descanso_segundos}
+                onChange={(e) => setLocal((p) => ({ ...p, descanso_segundos: Number(e.target.value) }))}
                 onBlur={handleBlurCardio}
                 placeholder="—"
                 className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
