@@ -8,6 +8,7 @@ import { NotifBell } from '@/components/alumno/NotifBell'
 import { InstallPwaBtn } from '@/components/alumno/InstallPwaBtn'
 import { EnablePushBtn } from '@/components/alumno/EnablePushBtn'
 import { OfflineSync } from '@/components/alumno/OfflineSync'
+import { TimerFAB } from '@/components/alumno/TimerFAB'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { logout } from '@/app/(auth)/login/actions'
 import type { Profile } from '@/lib/types/database'
@@ -101,6 +102,9 @@ export default async function AlumnoLayout({
 
       {/* Nav inferior */}
       <NavBottom />
+
+      {/* Temporizador flotante de descanso */}
+      <TimerFAB />
 
       {/* Banner instalación PWA */}
       <InstallPwaBtn />
