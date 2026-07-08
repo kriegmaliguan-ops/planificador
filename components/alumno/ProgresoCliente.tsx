@@ -917,10 +917,16 @@ function RegistroRow({
       </div>
 
       <div className="mt-1.5 flex items-center flex-wrap gap-x-2 gap-y-1">
-        <p className="text-sm font-semibold text-slate-800">
-          {r.series ?? '?'} × {r.reps ?? '?'}
-          {r.peso !== null ? ` @ ${r.peso} kg` : ''}
-        </p>
+        {r.esCardio ? (
+          <p className="text-sm font-semibold text-rose-700">
+            🫀 {formatCardioMetricas(r) || 'Cardio realizado'}
+          </p>
+        ) : (
+          <p className="text-sm font-semibold text-slate-800">
+            {r.series ?? '?'} × {r.reps ?? '?'}
+            {r.peso !== null ? ` @ ${r.peso} kg` : ''}
+          </p>
+        )}
         {r.rpe !== null && (
           <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${rpeColor(r.rpe)}`}>
             RPE {r.rpe}
@@ -930,6 +936,21 @@ function RegistroRow({
       {r.notas && <p className="mt-0.5 text-xs text-slate-600 italic">"{r.notas}"</p>}
     </div>
   )
+}
+
+/** "25 min · FC 145 · 5.2 km" para registros de cardio (omite campos vacíos) */
+function formatCardioMetricas(r: {
+  tiempoRealSegundos?: number | null
+  fcPromedio?: number | null
+  distanciaMetros?: number | null
+}): string {
+  const parts: string[] = []
+  if (r.tiempoRealSegundos != null) parts.push(`${Math.round(r.tiempoRealSegundos / 60)} min`)
+  if (r.fcPromedio != null) parts.push(`FC ${r.fcPromedio}`)
+  if (r.distanciaMetros != null) {
+    parts.push(r.distanciaMetros >= 1000 ? `${Math.round(r.distanciaMetros / 100) / 10} km` : `${r.distanciaMetros} m`)
+  }
+  return parts.join(' · ')
 }
 
 // ── Por Ejercicio Tab ─────────────────────────────────────────────────────────
@@ -1016,6 +1037,11 @@ function RegistroEjercicioRow({ r }: { r: RegistroPorEjercicio }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-slate-500 capitalize">{formatFechaCorta(r.fecha)}</p>
+          {r.esCardio ? (
+            <p className="mt-0.5 text-sm font-bold text-rose-700">
+              🫀 {formatCardioMetricas(r) || 'Cardio realizado'}
+            </p>
+          ) : (
           <p className="mt-0.5 text-sm font-bold text-slate-900">
             {r.peso !== null ? `${r.peso} kg` : 'Sin peso'}
             {r.reps !== null && (
@@ -1029,6 +1055,7 @@ function RegistroEjercicioRow({ r }: { r: RegistroPorEjercicio }) {
               </span>
             )}
           </p>
+          )}
         </div>
 
         {/* Badges */}
@@ -1037,6 +1064,24 @@ function RegistroEjercicioRow({ r }: { r: RegistroPorEjercicio }) {
             <span className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
               <Sparkles className="h-2.5 w-2.5" />
               Primera vez
+            </span>
+          )}
+          {!r.esPrimero && r.deltaTiempo != null && r.deltaTiempo !== 0 && Math.abs(r.deltaTiempo) >= 60 && (
+            <span className={`flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+              r.deltaTiempo > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+            }`}>
+              {r.deltaTiempo > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
+              {r.deltaTiempo > 0 ? '+' : '−'}{Math.round(Math.abs(r.deltaTiempo) / 60)} min
+            </span>
+          )}
+          {!r.esPrimero && r.deltaDistancia != null && r.deltaDistancia !== 0 && (
+            <span className={`flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+              r.deltaDistancia > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+            }`}>
+              {r.deltaDistancia > 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
+              {r.deltaDistancia > 0 ? '+' : '−'}{Math.abs(r.deltaDistancia) >= 1000
+                ? `${Math.round(Math.abs(r.deltaDistancia) / 100) / 10} km`
+                : `${Math.abs(r.deltaDistancia)} m`}
             </span>
           )}
           {!r.esPrimero && r.deltaPeso !== null && r.deltaPeso !== 0 && (

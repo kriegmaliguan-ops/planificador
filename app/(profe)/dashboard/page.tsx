@@ -1,4 +1,4 @@
-import { Users, BookOpen, CalendarDays, TrendingUp, PauseCircle, Dumbbell, CheckCircle2, Clock, AlertTriangle, Flame } from 'lucide-react'
+import { Users, BookOpen, CalendarDays, TrendingUp, PauseCircle, Dumbbell, CheckCircle2, Clock, AlertTriangle, Flame, Gauge, Moon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getHoyChile } from '@/lib/utils'
 import Link from 'next/link'
@@ -29,6 +29,8 @@ interface AlumnoMetrica {
   diasSinEntrenar: number       // días desde último registro
   ultimoRegistro: string | null
   adherenciaSemana: number | null  // % (entrenados / previstos) si previstos > 0
+  rpePromSemana: number | null     // promedio de RPE registrado esta semana
+  suenoPromSemana: number | null   // promedio de sueño (1-7) esta semana
 }
 
 async function getDashboardData() {
@@ -41,13 +43,14 @@ async function getDashboardData() {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
   })()
 
-  const [alumnosRes, ejerciciosRes, rutinasActivasCountRes, registrosSemanaRes, registrosMesRes, rutinasConDiasRes] = await Promise.all([
+  const [alumnosRes, ejerciciosRes, rutinasActivasCountRes, registrosSemanaRes, registrosMesRes, rutinasConDiasRes, bienestarSemanaRes] = await Promise.all([
     supabase.from('profiles').select('id, nombre, apellido, email, suspendido, created_at').eq('role', 'alumno').order('nombre'),
     supabase.from('ejercicios').select('*', { count: 'exact', head: true }),
     supabase.from('rutinas').select('*', { count: 'exact', head: true }).eq('activa', true),
-    supabase.from('registros_progreso').select('alumno_id, fecha').gte('fecha', lunes).lte('fecha', hoy),
+    supabase.from('registros_progreso').select('alumno_id, fecha, rpe').gte('fecha', lunes).lte('fecha', hoy),
     supabase.from('registros_progreso').select('alumno_id, fecha').gte('fecha', hace30Dias).lte('fecha', hoy),
     supabase.from('rutinas').select('alumno_id, dias:rutina_dias(es_descanso)').eq('activa', true) as unknown as Promise<{ data: any[] | null }>,
+    supabase.from('registros_bienestar').select('alumno_id, fecha, descanso').gte('fecha', lunes).lte('fecha', hoy) as unknown as Promise<{ data: any[] | null }>,
   ])
 
   const alumnos = (alumnosRes.data ?? []) as {
@@ -57,9 +60,27 @@ async function getDashboardData() {
 
   // Días entrenados por alumno esta semana (distinct fechas)
   const semanaPorAlumno = new Map<string, Set<string>>()
-  for (const r of registrosSemanaRes.data ?? []) {
+  const rpesPorAlumno = new Map<string, number[]>()
+  for (const r of (registrosSemanaRes.data ?? []) as any[]) {
     if (!semanaPorAlumno.has(r.alumno_id)) semanaPorAlumno.set(r.alumno_id, new Set())
     semanaPorAlumno.get(r.alumno_id)!.add(r.fecha)
+    if (r.rpe != null) {
+      if (!rpesPorAlumno.has(r.alumno_id)) rpesPorAlumno.set(r.alumno_id, [])
+      rpesPorAlumno.get(r.alumno_id)!.push(r.rpe)
+    }
+  }
+
+  // Sueño por alumno esta semana (un valor por fecha, deduplicado)
+  const suenoPorAlumno = new Map<string, Map<string, number>>()
+  for (const b of (bienestarSemanaRes.data ?? []) as any[]) {
+    if (!suenoPorAlumno.has(b.alumno_id)) suenoPorAlumno.set(b.alumno_id, new Map())
+    const porFecha = suenoPorAlumno.get(b.alumno_id)!
+    if (!porFecha.has(b.fecha)) porFecha.set(b.fecha, b.descanso)
+  }
+
+  function promedio(nums: number[]): number | null {
+    if (nums.length === 0) return null
+    return Math.round((nums.reduce((s, n) => s + n, 0) / nums.length) * 10) / 10
   }
 
   // Último registro por alumno (mes anterior)
@@ -98,6 +119,8 @@ async function getDashboardData() {
       diasSinEntrenar,
       ultimoRegistro: ultimo,
       adherenciaSemana: diasPrevistos > 0 ? Math.min(100, Math.round((diasEntrenados / diasPrevistos) * 100)) : null,
+      rpePromSemana: promedio(rpesPorAlumno.get(a.id) ?? []),
+      suenoPromSemana: promedio([...(suenoPorAlumno.get(a.id)?.values() ?? [])]),
     }
   })
 
@@ -117,6 +140,10 @@ async function getDashboardData() {
     ? Math.round(conAdherencia.reduce((s, a) => s + (a.adherenciaSemana ?? 0), 0) / conAdherencia.length)
     : null
 
+  // Promedios globales de la semana (solo alumnos activos con datos)
+  const rpePromedioGlobal = promedio(activos.map(a => a.rpePromSemana).filter((n): n is number => n !== null))
+  const suenoPromedioGlobal = promedio(activos.map(a => a.suenoPromSemana).filter((n): n is number => n !== null))
+
   return {
     totalAlumnos: alumnos.length,
     activos: activos.length,
@@ -128,6 +155,8 @@ async function getDashboardData() {
     metricas,
     requierenAtencion,
     adherenciaPromedio,
+    rpePromedioGlobal,
+    suenoPromedioGlobal,
     lunes,
     hoy,
   }
@@ -179,6 +208,26 @@ export default async function DashboardPage() {
             {data.adherenciaPromedio !== null ? `${data.adherenciaPromedio}%` : '—'}
           </p>
           <p className="mt-0.5 text-sm text-slate-500">Adherencia promedio</p>
+        </div>
+
+        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+          <div className="mb-3 inline-flex rounded-xl bg-rose-50 p-2.5">
+            <Gauge className="h-5 w-5 text-rose-600" />
+          </div>
+          <p className="text-3xl font-bold text-slate-900">
+            {data.rpePromedioGlobal !== null ? data.rpePromedioGlobal : '—'}
+          </p>
+          <p className="mt-0.5 text-sm text-slate-500">RPE promedio semanal</p>
+        </div>
+
+        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+          <div className="mb-3 inline-flex rounded-xl bg-indigo-50 p-2.5">
+            <Moon className="h-5 w-5 text-indigo-600" />
+          </div>
+          <p className="text-3xl font-bold text-slate-900">
+            {data.suenoPromedioGlobal !== null ? `${data.suenoPromedioGlobal}/7` : '—'}
+          </p>
+          <p className="mt-0.5 text-sm text-slate-500">Sueño promedio semanal</p>
         </div>
       </div>
 
@@ -270,8 +319,8 @@ export default async function DashboardPage() {
                         {alumno.nombre} {alumno.apellido ?? ''}
                       </p>
                       {!alumno.suspendido && alumno.rutinaActiva && (
-                        <div className="mt-1.5 flex items-center gap-2">
-                          <div className="h-1.5 flex-1 max-w-[120px] overflow-hidden rounded-full bg-slate-100">
+                        <div className="mt-1.5 flex items-center flex-wrap gap-2">
+                          <div className="h-1.5 flex-1 max-w-[120px] min-w-[60px] overflow-hidden rounded-full bg-slate-100">
                             <div
                               className={`h-full ${barColor} transition-all`}
                               style={{ width: `${adh ?? 0}%` }}
@@ -280,6 +329,22 @@ export default async function DashboardPage() {
                           <span className="text-[10px] text-slate-500 font-medium">
                             {alumno.diasEntrenadosSemana}/{alumno.diasPrevistosSemana || '?'}
                           </span>
+                          {alumno.rpePromSemana !== null && (
+                            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                              alumno.rpePromSemana >= 8.5 ? 'bg-red-50 text-red-600'
+                              : alumno.rpePromSemana < 6 ? 'bg-emerald-50 text-emerald-600'
+                              : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              RPE {alumno.rpePromSemana}
+                            </span>
+                          )}
+                          {alumno.suenoPromSemana !== null && (
+                            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                              alumno.suenoPromSemana < 4 ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              😴 {alumno.suenoPromSemana}/7
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>

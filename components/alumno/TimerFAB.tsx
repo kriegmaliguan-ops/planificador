@@ -1,9 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Timer, Play, Pause, RotateCcw, X, Plus, Minus } from 'lucide-react'
 
 const PRESETS = [30, 60, 90, 120, 180]
+const STORAGE_KEY = 'descanso-timer'
+
+interface TimerPersistido {
+  endTs: number | null          // timestamp de fin (ms). null = pausado
+  objetivo: number              // segundos objetivo (para reiniciar)
+  pausedRemaining: number | null // segundos restantes al pausar
+}
 
 function formatTime(segs: number): string {
   const m = Math.floor(segs / 60)
@@ -11,43 +18,114 @@ function formatTime(segs: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+function leerPersistido(): TimerPersistido | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as TimerPersistido
+  } catch {
+    return null
+  }
+}
+
+function guardarPersistido(t: TimerPersistido | null) {
+  try {
+    if (t === null) {
+      localStorage.removeItem(STORAGE_KEY)
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(t))
+    }
+  } catch {
+    // localStorage lleno o bloqueado: el timer sigue funcionando in-memory
+  }
+}
+
 export function TimerFAB() {
   const [expanded, setExpanded] = useState(false)
-  const [segundosObjetivo, setSegundosObjetivo] = useState(90)
   const [inputValue, setInputValue] = useState('90')
-  const [segundosRestantes, setSegundosRestantes] = useState<number | null>(null)
-  const [corriendo, setCorriendo] = useState(false)
+  const [segundosObjetivo, setSegundosObjetivo] = useState(90)
+  const [endTs, setEndTs] = useState<number | null>(null)          // corriendo si != null
+  const [pausedRemaining, setPausedRemaining] = useState<number | null>(null) // pausado si != null
   const [terminado, setTerminado] = useState(false)
+  const [ahora, setAhora] = useState(() => Date.now())
 
-  // Tick: bajar un segundo cada 1s mientras corre
+  const corriendo = endTs !== null
+  const hayTimer = corriendo || pausedRemaining !== null
+
+  const segundosRestantes = corriendo
+    ? Math.max(0, Math.ceil((endTs - ahora) / 1000))
+    : pausedRemaining
+
+  // ── Restaurar desde localStorage al montar
+  useEffect(() => {
+    const saved = leerPersistido()
+    if (!saved) return
+    setSegundosObjetivo(saved.objetivo)
+    setInputValue(String(saved.objetivo))
+    if (saved.endTs !== null) {
+      const restante = saved.endTs - Date.now()
+      if (restante > 0) {
+        setEndTs(saved.endTs)
+      } else if (restante > -60_000) {
+        // Terminó hace menos de 1 min: mostrar aviso
+        setTerminado(true)
+        setExpanded(true)
+        guardarPersistido(null)
+      } else {
+        guardarPersistido(null)
+      }
+    } else if (saved.pausedRemaining !== null && saved.pausedRemaining > 0) {
+      setPausedRemaining(saved.pausedRemaining)
+    } else {
+      guardarPersistido(null)
+    }
+  }, [])
+
+  // ── Tick: recalcular desde el timestamp (sin drift en background)
   useEffect(() => {
     if (!corriendo) return
-    const id = setInterval(() => {
-      setSegundosRestantes((s) => {
-        if (s === null || s <= 1) {
-          return 0
-        }
-        return s - 1
-      })
-    }, 1000)
+    const id = setInterval(() => setAhora(Date.now()), 1000)
+    setAhora(Date.now())
     return () => clearInterval(id)
   }, [corriendo])
 
-  // Detectar fin del timer (cuando llega a 0)
+  // ── Detectar fin
   useEffect(() => {
-    if (segundosRestantes === 0 && corriendo) {
-      setCorriendo(false)
+    if (corriendo && segundosRestantes === 0) {
+      setEndTs(null)
+      setPausedRemaining(null)
       setTerminado(true)
       setExpanded(true)
+      guardarPersistido(null)
     }
-  }, [segundosRestantes, corriendo])
+  }, [corriendo, segundosRestantes])
+
+  const iniciarCon = useCallback((segundos: number) => {
+    const n = Math.max(1, Math.round(segundos))
+    const nuevoEnd = Date.now() + n * 1000
+    setSegundosObjetivo(n)
+    setInputValue(String(n))
+    setEndTs(nuevoEnd)
+    setPausedRemaining(null)
+    setTerminado(false)
+    setAhora(Date.now())
+    guardarPersistido({ endTs: nuevoEnd, objetivo: n, pausedRemaining: null })
+  }, [])
+
+  // ── Auto-inicio: escuchar evento disparado al registrar una serie
+  useEffect(() => {
+    function onIniciarDescanso(e: Event) {
+      const segundos = (e as CustomEvent<{ segundos: number }>).detail?.segundos
+      if (typeof segundos === 'number' && segundos > 0) {
+        iniciarCon(segundos)
+      }
+    }
+    window.addEventListener('iniciar-descanso', onIniciarDescanso)
+    return () => window.removeEventListener('iniciar-descanso', onIniciarDescanso)
+  }, [iniciarCon])
 
   function handleIniciar() {
-    const n = Math.max(1, Number(inputValue) || 90)
-    setSegundosObjetivo(n)
-    setSegundosRestantes(n)
-    setCorriendo(true)
-    setTerminado(false)
+    iniciarCon(Number(inputValue) || 90)
   }
 
   function handlePresetTap(p: number) {
@@ -56,38 +134,52 @@ export function TimerFAB() {
   }
 
   function handlePausarReanudar() {
-    setCorriendo((c) => !c)
+    if (corriendo) {
+      const restante = Math.max(0, Math.ceil((endTs! - Date.now()) / 1000))
+      setEndTs(null)
+      setPausedRemaining(restante)
+      guardarPersistido({ endTs: null, objetivo: segundosObjetivo, pausedRemaining: restante })
+    } else if (pausedRemaining !== null) {
+      const nuevoEnd = Date.now() + pausedRemaining * 1000
+      setEndTs(nuevoEnd)
+      setPausedRemaining(null)
+      setAhora(Date.now())
+      guardarPersistido({ endTs: nuevoEnd, objetivo: segundosObjetivo, pausedRemaining: null })
+    }
   }
 
   function handleAjustar(delta: number) {
-    setSegundosRestantes((s) => {
-      if (s === null) return s
-      return Math.max(0, s + delta)
-    })
-    if (delta > 0) {
-      setSegundosObjetivo((o) => o + delta)
+    if (corriendo) {
+      const nuevoEnd = Math.max(Date.now() + 1000, endTs! + delta * 1000)
+      setEndTs(nuevoEnd)
+      const nuevoObjetivo = delta > 0 ? segundosObjetivo + delta : segundosObjetivo
+      if (delta > 0) setSegundosObjetivo(nuevoObjetivo)
+      guardarPersistido({ endTs: nuevoEnd, objetivo: nuevoObjetivo, pausedRemaining: null })
+    } else if (pausedRemaining !== null) {
+      const nuevo = Math.max(1, pausedRemaining + delta)
+      setPausedRemaining(nuevo)
+      const nuevoObjetivo = delta > 0 ? segundosObjetivo + delta : segundosObjetivo
+      if (delta > 0) setSegundosObjetivo(nuevoObjetivo)
+      guardarPersistido({ endTs: null, objetivo: nuevoObjetivo, pausedRemaining: nuevo })
     }
   }
 
   function handleReiniciar() {
-    setSegundosRestantes(segundosObjetivo)
-    setCorriendo(true)
-    setTerminado(false)
+    iniciarCon(segundosObjetivo)
   }
 
   function handleCancelar() {
-    setCorriendo(false)
-    setSegundosRestantes(null)
+    setEndTs(null)
+    setPausedRemaining(null)
     setTerminado(false)
+    guardarPersistido(null)
   }
 
   function handleOkTerminado() {
     setTerminado(false)
-    setSegundosRestantes(null)
     setExpanded(false)
+    guardarPersistido(null)
   }
-
-  const hayTimer = segundosRestantes !== null
 
   // Estilo de fondo del panel: flash si terminado
   const panelBg = terminado
@@ -99,7 +191,7 @@ export function TimerFAB() {
     <div className="flex flex-col items-center justify-center leading-none">
       <Timer className="h-4 w-4 mb-0.5" />
       <span className="text-[10px] font-bold tabular-nums">
-        {formatTime(segundosRestantes!)}
+        {formatTime(segundosRestantes ?? 0)}
       </span>
     </div>
   ) : terminado ? (
@@ -152,14 +244,14 @@ export function TimerFAB() {
             {!terminado && hayTimer && (
               <div className="space-y-3">
                 <p className="text-center text-5xl font-bold tabular-nums text-slate-900">
-                  {formatTime(segundosRestantes!)}
+                  {formatTime(segundosRestantes ?? 0)}
                 </p>
                 {/* Barra de progreso */}
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
                   <div
                     className="h-full bg-rose-500 transition-all duration-1000"
                     style={{
-                      width: `${segundosObjetivo > 0 ? (segundosRestantes! / segundosObjetivo) * 100 : 0}%`,
+                      width: `${segundosObjetivo > 0 ? ((segundosRestantes ?? 0) / segundosObjetivo) * 100 : 0}%`,
                     }}
                   />
                 </div>

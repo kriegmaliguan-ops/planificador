@@ -194,6 +194,12 @@ export function EjercicioHoyCard({ ejercicio, index, fecha }: EjercicioHoyCardPr
       } else {
         setGuardado(true)
         setExpandido(false)
+        // Auto-iniciar el temporizador de descanso con lo que definió el profe
+        if (ejercicio.descanso_segundos && ejercicio.descanso_segundos > 0) {
+          window.dispatchEvent(new CustomEvent('iniciar-descanso', {
+            detail: { segundos: ejercicio.descanso_segundos },
+          }))
+        }
       }
     })
   }

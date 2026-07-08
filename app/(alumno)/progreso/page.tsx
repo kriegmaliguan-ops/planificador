@@ -33,6 +33,11 @@ export interface RegistroHistorial {
   peso: number | null
   rpe: number | null
   notas: string | null
+  // Cardio
+  esCardio?: boolean
+  tiempoRealSegundos?: number | null
+  fcPromedio?: number | null
+  distanciaMetros?: number | null
 }
 
 export interface SesionHistorial {
@@ -82,6 +87,13 @@ export interface RegistroPorEjercicio {
   deltaPeso: number | null
   deltaReps: number | null
   esPrimero: boolean
+  // Cardio
+  esCardio?: boolean
+  tiempoRealSegundos?: number | null
+  fcPromedio?: number | null
+  distanciaMetros?: number | null
+  deltaTiempo?: number | null      // segundos vs sesión anterior
+  deltaDistancia?: number | null   // metros vs sesión anterior
 }
 
 export interface EjercicioConHistorial {
@@ -216,7 +228,7 @@ async function getDatos(alumnoId: string, hoy: string) {
       .order('fecha', { ascending: false }) as unknown as Promise<{ data: any[] | null }>,
     supabase
       .from('registros_progreso')
-      .select('id, fecha, rpe, series_completadas, repeticiones_realizadas, peso_utilizado, notas, rutina_ejercicio_id')
+      .select('id, fecha, rpe, series_completadas, repeticiones_realizadas, peso_utilizado, notas, rutina_ejercicio_id, tiempo_real_segundos, fc_promedio, distancia_metros')
       .eq('alumno_id', alumnoId)
       .gte('fecha', desdeStr)
       .order('fecha', { ascending: false })
@@ -270,14 +282,18 @@ async function getDatos(alumnoId: string, hoy: string) {
   // Step 2: resolver nombres de ejercicios con queries directas (2 pasos)
   const reIds = [...new Set(progresoRaw.map((r) => r.rutina_ejercicio_id).filter(Boolean))] as string[]
   const ejIdByReId = new Map<string, string>()
+  const modalidadByReId = new Map<string, string>()
   const ejDataMap = new Map<string, { nombre: string; grupos: GrupoMuscular[] }>()
 
   if (reIds.length > 0) {
     const { data: rutinaEjs } = await supabase
       .from('rutina_ejercicios')
-      .select('id, ejercicio_id')
+      .select('id, ejercicio_id, modalidad')
       .in('id', reIds)
-    for (const re of rutinaEjs ?? []) ejIdByReId.set(re.id, re.ejercicio_id)
+    for (const re of (rutinaEjs ?? []) as any[]) {
+      ejIdByReId.set(re.id, re.ejercicio_id)
+      modalidadByReId.set(re.id, re.modalidad ?? 'normal')
+    }
 
     const ejIds = [...new Set([...ejIdByReId.values()])] as string[]
     if (ejIds.length > 0) {
@@ -298,6 +314,12 @@ async function getDatos(alumnoId: string, hoy: string) {
     const ejId = ejIdByReId.get(reId)
     if (!ejId) return { nombre: 'Ejercicio', grupos: [] }
     return ejDataMap.get(ejId) ?? { nombre: 'Ejercicio', grupos: [] }
+  }
+
+  // Un registro es cardio si el ejercicio de rutina tiene modalidad cardio
+  // o si tiene métricas cardio guardadas (compat con registros viejos)
+  function esRegistroCardio(r: any): boolean {
+    return modalidadByReId.get(r.rutina_ejercicio_id) === 'cardio' || r.tiempo_real_segundos != null
   }
 
   // RPE records para los gráficos de barras (semanal/mensual)
@@ -333,6 +355,10 @@ async function getDatos(alumnoId: string, hoy: string) {
       peso: r.peso_utilizado,
       rpe: r.rpe,
       notas: r.notas,
+      esCardio: esRegistroCardio(r),
+      tiempoRealSegundos: r.tiempo_real_segundos ?? null,
+      fcPromedio: r.fc_promedio ?? null,
+      distanciaMetros: r.distancia_metros ?? null,
     })
   }
   const historial: SesionHistorial[] = Array.from(sesionesMap.entries()).map(([fecha, registros]) => ({
@@ -374,6 +400,16 @@ async function getDatos(alumnoId: string, hoy: string) {
           : null,
         deltaReps: repsActual != null && repsPrev != null ? repsActual - repsPrev : null,
         esPrimero: i === 0,
+        esCardio: esRegistroCardio(r),
+        tiempoRealSegundos: r.tiempo_real_segundos ?? null,
+        fcPromedio: r.fc_promedio ?? null,
+        distanciaMetros: r.distancia_metros ?? null,
+        deltaTiempo: prev && r.tiempo_real_segundos != null && prev.tiempo_real_segundos != null
+          ? r.tiempo_real_segundos - prev.tiempo_real_segundos
+          : null,
+        deltaDistancia: prev && r.distancia_metros != null && prev.distancia_metros != null
+          ? r.distancia_metros - prev.distancia_metros
+          : null,
       }
     })
     // Invertir: más reciente primero
