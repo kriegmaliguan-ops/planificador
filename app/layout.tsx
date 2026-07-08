@@ -25,6 +25,10 @@ export const metadata: Metadata = {
       { url: "/icon.svg", type: "image/svg+xml" },
     ],
   },
+  // Evita que Chrome "traduzca" la app (rompía textos: 60s → años 60, M → Metro)
+  other: {
+    google: "notranslate",
+  },
 };
 
 export const viewport: Viewport = {
@@ -41,6 +45,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
+      translate="no"
       className={`${geistSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">

@@ -328,7 +328,7 @@ export function TimerFAB() {
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                       }`}
                     >
-                      {p}s
+                      {p} seg
                     </button>
                   ))}
                 </div>
