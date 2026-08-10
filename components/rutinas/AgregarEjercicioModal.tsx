@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useTransition, useMemo, useEffect } from 'react'
-import { Search, Check, Plus, X } from 'lucide-react'
+import { Search, Check, Plus, X, Sparkles } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { grupoColor } from '@/lib/utils'
 import { agregarEjercicioARutina } from '@/app/(profe)/rutinas/[alumnoId]/actions'
-import type { DiaSemana } from '@/lib/types/database'
+import { crearEjercicio } from '@/app/(profe)/ejercicios/actions'
+import type { DiaSemana, GrupoMuscular } from '@/lib/types/database'
 import type { EjercicioItem } from '@/app/(profe)/ejercicios/page'
 import type { EjercicioEnDia, EstadoDia } from '@/app/(profe)/rutinas/[alumnoId]/page'
 
@@ -30,6 +31,7 @@ interface AgregarEjercicioModalProps {
   tituloPersonalizado?: string      // header del modal
   esCardio?: boolean                 // modo cardio: filtro grupo Cardio + form de config
   grupoForzadoNombre?: string        // si se pasa, filtra automaticamente por ese grupo (case-insensitive)
+  gruposLib?: GrupoMuscular[]        // lista completa de grupos musculares (para crear ejercicio inline)
 }
 
 export function AgregarEjercicioModal({
@@ -48,11 +50,18 @@ export function AgregarEjercicioModal({
   tituloPersonalizado,
   esCardio = false,
   grupoForzadoNombre,
+  gruposLib = [],
 }: AgregarEjercicioModalProps) {
   const [isPending, startTransition] = useTransition()
+  const [isCreating, startCreating] = useTransition()
   const [search, setSearch] = useState('')
   const [grupoFiltro, setGrupoFiltro] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  // Ejercicios creados inline en esta sesión (aún no llegan por props del server)
+  const [extras, setExtras] = useState<EjercicioItem[]>([])
+  const [creando, setCreando] = useState(false)
+  const [nuevoEj, setNuevoEj] = useState({ nombre: '', descripcion: '', video_url: '', gruposIds: new Set<string>() })
+  const [errorCrear, setErrorCrear] = useState<string | null>(null)
   const [params, setParams] = useState({ series: 3, repeticiones: '10', peso: '', descanso: 90 })
   const [cardioParams, setCardioParams] = useState({
     series: 1,
@@ -84,18 +93,24 @@ export function AgregarEjercicioModal({
 
   const yaEnDia = new Set(diaActual.ejercicios.map((e) => e.ejercicio_id))
 
+  // Biblioteca combinada: la del server + los creados inline en esta sesión
+  const todosEjercicios = useMemo(() => [...ejerciciosLib, ...extras], [ejerciciosLib, extras])
+
   // Lista de todos los grupos musculares disponibles (sacados de los ejercicios)
   const todosGrupos = useMemo(() => {
     const map = new Map<string, { id: string; nombre: string }>()
-    for (const ej of ejerciciosLib) {
+    for (const ej of todosEjercicios) {
       for (const g of ej.grupos) map.set(g.id, { id: g.id, nombre: g.nombre })
     }
     return Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre))
-  }, [ejerciciosLib])
+  }, [todosEjercicios])
+
+  // Grupos para el form de creación: lista real de la DB si está, sino la derivada
+  const gruposParaForm = gruposLib.length > 0 ? gruposLib : todosGrupos
 
   const filtered = useMemo(() => {
     const term = normalize(search.trim())
-    return ejerciciosLib.filter((ej) => {
+    return todosEjercicios.filter((ej) => {
       // Filtro por grupo
       if (grupoFiltro && !ej.grupos.some((g) => g.id === grupoFiltro)) return false
       // Filtro por texto: nombre del ejercicio o nombre de cualquier grupo muscular
@@ -104,9 +119,9 @@ export function AgregarEjercicioModal({
       if (ej.grupos.some((g) => normalize(g.nombre).includes(term))) return true
       return false
     })
-  }, [ejerciciosLib, search, grupoFiltro])
+  }, [todosEjercicios, search, grupoFiltro])
 
-  const selectedItems = ejerciciosLib.filter((e) => selectedIds.has(e.id))
+  const selectedItems = todosEjercicios.filter((e) => selectedIds.has(e.id))
 
   function toggle(ej: EjercicioItem) {
     if (yaEnDia.has(ej.id)) return
@@ -130,10 +145,84 @@ export function AgregarEjercicioModal({
     })
   }
 
+  // ── Creación inline de ejercicio ────────────────────────────────────────────
+
+  function abrirFormCrear() {
+    setNuevoEj({
+      nombre: search.trim(),
+      descripcion: '',
+      video_url: '',
+      // Si hay un filtro de grupo activo, pre-marcarlo
+      gruposIds: new Set(grupoFiltro ? [grupoFiltro] : []),
+    })
+    setErrorCrear(null)
+    setCreando(true)
+  }
+
+  function toggleGrupoNuevo(id: string) {
+    setNuevoEj((p) => {
+      const next = new Set(p.gruposIds)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return { ...p, gruposIds: next }
+    })
+  }
+
+  function handleCrearEjercicio(e: React.FormEvent) {
+    e.preventDefault()
+    const nombre = nuevoEj.nombre.trim()
+    if (!nombre) { setErrorCrear('El nombre es obligatorio.'); return }
+    setErrorCrear(null)
+
+    startCreating(async () => {
+      const fd = new FormData()
+      fd.set('nombre', nombre)
+      fd.set('descripcion', nuevoEj.descripcion.trim())
+      fd.set('video_url', nuevoEj.video_url.trim())
+      for (const gid of nuevoEj.gruposIds) fd.append('grupos', gid)
+
+      const result = await crearEjercicio(fd)
+      if (result.error || !result.id) {
+        setErrorCrear(result.error ?? 'Error al crear el ejercicio.')
+        return
+      }
+
+      // Armar el EjercicioItem local con los nombres de grupos
+      const creado: EjercicioItem = {
+        id: result.id,
+        nombre,
+        descripcion: nuevoEj.descripcion.trim() || null,
+        video_url: nuevoEj.video_url.trim() || null,
+        grupos: gruposParaForm.filter((g) => nuevoEj.gruposIds.has(g.id)),
+      }
+      setExtras((prev) => [...prev, creado])
+
+      // Auto-seleccionarlo respetando maxSeleccionados
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        if (maxSeleccionados && next.size >= maxSeleccionados) {
+          if (maxSeleccionados === 1) next.clear()
+          else {
+            const firstId = next.values().next().value
+            if (firstId) next.delete(firstId)
+          }
+        }
+        next.add(creado.id)
+        return next
+      })
+
+      // Volver a la lista con el nuevo ejercicio visible y seleccionado
+      setCreando(false)
+      setSearch('')
+    })
+  }
+
   function handleClose() {
     setSearch('')
     setGrupoFiltro(null)
     setSelectedIds(new Set())
+    setCreando(false)
+    setErrorCrear(null)
     setParams({ series: 3, repeticiones: '10', peso: '', descanso: 90 })
     setCardioParams({ series: 1, trabajo_segundos: '1800', descanso_intervalo_segundos: '', descanso_segundos: '', intensidad: '', metros_objetivo: '', rpe_objetivo: '' })
     setError(null)
@@ -211,6 +300,96 @@ export function AgregarEjercicioModal({
       className="max-w-lg max-h-[90vh] flex flex-col"
     >
       <div className="flex flex-col gap-4 overflow-hidden">
+        {creando ? (
+          /* ── Form de creación inline ── */
+          <form onSubmit={handleCrearEjercicio} className="space-y-3">
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 ring-1 ring-emerald-200">
+              <Sparkles className="h-4 w-4 shrink-0 text-emerald-600" />
+              <p className="text-xs font-semibold text-emerald-700">
+                Nuevo ejercicio — se guarda en tu biblioteca y queda seleccionado
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Nombre *</label>
+              <input
+                autoFocus
+                type="text"
+                required
+                value={nuevoEj.nombre}
+                onChange={(e) => setNuevoEj((p) => ({ ...p, nombre: e.target.value }))}
+                placeholder="Ej: Press Pallof"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Descripción</label>
+              <textarea
+                rows={2}
+                value={nuevoEj.descripcion}
+                onChange={(e) => setNuevoEj((p) => ({ ...p, descripcion: e.target.value }))}
+                placeholder="Técnica, consejos, indicaciones..."
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Video (URL)</label>
+              <input
+                type="url"
+                value={nuevoEj.video_url}
+                onChange={(e) => setNuevoEj((p) => ({ ...p, video_url: e.target.value }))}
+                placeholder="https://youtube.com/..."
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-slate-600">Grupos musculares</label>
+              {gruposParaForm.length === 0 ? (
+                <p className="text-xs text-slate-400">No hay grupos creados todavía.</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+                  {gruposParaForm.map((g) => {
+                    const marcado = nuevoEj.gruposIds.has(g.id)
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => toggleGrupoNuevo(g.id)}
+                        className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${grupoColor(g.nombre)} ${
+                          marcado ? 'ring-2 ring-offset-1 ring-emerald-500' : 'opacity-60 hover:opacity-100'
+                        }`}
+                      >
+                        {marcado && '✓ '}{g.nombre}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {errorCrear && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{errorCrear}</p>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1"
+                onClick={() => { setCreando(false); setErrorCrear(null) }}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" loading={isCreating} className="flex-1 !bg-emerald-600 hover:!bg-emerald-500">
+                {isCreating ? 'Creando...' : '✓ Crear y seleccionar'}
+              </Button>
+            </div>
+          </form>
+        ) : (
+        <>
         {/* Búsqueda */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -247,12 +426,12 @@ export function AgregarEjercicioModal({
             >
               Todos
               <span className={`ml-1.5 opacity-70 ${grupoFiltro === null ? '' : 'text-slate-400'}`}>
-                {ejerciciosLib.length}
+                {todosEjercicios.length}
               </span>
             </button>
             {todosGrupos.map((g) => {
               const isActive = grupoFiltro === g.id
-              const count = ejerciciosLib.filter((e) => e.grupos.some((x) => x.id === g.id)).length
+              const count = todosEjercicios.filter((e) => e.grupos.some((x) => x.id === g.id)).length
               return (
                 <button
                   key={g.id}
@@ -291,16 +470,28 @@ export function AgregarEjercicioModal({
         {/* Lista de ejercicios */}
         <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-100 divide-y divide-slate-100">
           {filtered.length === 0 ? (
-            <div className="py-8 text-center">
+            <div className="py-8 text-center px-4">
               <p className="text-sm text-slate-400">Sin resultados</p>
-              {(search || grupoFiltro) && (
+              {search.trim() && (
                 <button
                   type="button"
-                  onClick={() => { setSearch(''); setGrupoFiltro(null) }}
-                  className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-500"
+                  onClick={abrirFormCrear}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 transition-colors"
                 >
-                  Limpiar filtros
+                  <Plus className="h-4 w-4" />
+                  Crear «{search.trim()}»
                 </button>
+              )}
+              {(search || grupoFiltro) && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => { setSearch(''); setGrupoFiltro(null) }}
+                    className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-500"
+                  >
+                    Limpiar filtros
+                  </button>
+                </div>
               )}
             </div>
           ) : (
@@ -340,6 +531,16 @@ export function AgregarEjercicioModal({
             })
           )}
         </div>
+
+        {/* CTA crear ejercicio (siempre disponible) */}
+        <button
+          type="button"
+          onClick={abrirFormCrear}
+          className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-emerald-300 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          ¿No está en la lista? Crear ejercicio nuevo
+        </button>
 
         {/* Parámetros compartidos */}
         {selectedIds.size > 0 && (
@@ -481,6 +682,8 @@ export function AgregarEjercicioModal({
           <p className="text-center text-sm text-slate-400">
             Seleccioná uno o más ejercicios de la lista
           </p>
+        )}
+        </>
         )}
       </div>
     </Modal>

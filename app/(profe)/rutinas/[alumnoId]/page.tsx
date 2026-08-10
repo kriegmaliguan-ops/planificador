@@ -75,7 +75,7 @@ function initWeek(): Record<DiaSemana, EstadoDia> {
 async function getData(alumnoId: string) {
   const supabase = await createClient()
 
-  const [alumnoResult, ejerciciosResult, rutinaResult, plantillasResult, calentamientosResult, bloquesResult] = await Promise.all([
+  const [alumnoResult, ejerciciosResult, rutinaResult, plantillasResult, calentamientosResult, bloquesResult, gruposResult] = await Promise.all([
     supabase.from('profiles').select('id, nombre, apellido, suspendido').eq('id', alumnoId).single(),
     supabase
       .from('ejercicios')
@@ -109,6 +109,10 @@ async function getData(alumnoId: string) {
       .from('bloques_dia')
       .select('id, nombre, ejercicios:bloque_ejercicios(id)')
       .order('created_at', { ascending: false }) as unknown as Promise<{ data: any[] | null }>,
+    supabase
+      .from('grupos_musculares')
+      .select('id, nombre')
+      .order('nombre') as unknown as Promise<{ data: GrupoMuscular[] | null }>,
   ])
 
   const alumno = typed<Pick<Profile, 'id' | 'nombre' | 'apellido' | 'suspendido'>>(alumnoResult).data
@@ -223,7 +227,8 @@ async function getData(alumnoId: string) {
     nombre: b.nombre,
     cantEjercicios: (b.ejercicios ?? []).length,
   }))
-  return { alumno, ejerciciosLib, rutinaData, plantillas, calentamientos, bloques }
+  const gruposLib = (gruposResult.data ?? []) as GrupoMuscular[]
+  return { alumno, ejerciciosLib, rutinaData, plantillas, calentamientos, bloques, gruposLib }
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -238,7 +243,7 @@ export default async function RutinaBuilderPage({ params }: Props) {
 
   if (!data) notFound()
 
-  const { alumno, ejerciciosLib, rutinaData, plantillas, calentamientos, bloques } = data
+  const { alumno, ejerciciosLib, rutinaData, plantillas, calentamientos, bloques, gruposLib } = data
 
   if (alumno.suspendido === true) {
     return (
@@ -294,6 +299,7 @@ export default async function RutinaBuilderPage({ params }: Props) {
         plantillasDisponibles={plantillas}
         calentamientosDisponibles={calentamientos}
         bloquesDisponibles={bloques}
+        gruposLib={gruposLib}
       />
     </div>
   )

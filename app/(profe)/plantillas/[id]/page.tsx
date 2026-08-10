@@ -60,6 +60,11 @@ async function getData(plantillaId: string) {
     cantEjercicios: (b.ejercicios ?? []).length,
   }))
 
+  const { data: gruposRaw } = await supabase
+    .from('grupos_musculares')
+    .select('id, nombre')
+    .order('nombre') as { data: GrupoMuscular[] | null }
+
   const ejerciciosLib: EjercicioItem[] = ((ejerciciosResult.data as any[]) ?? []).map((ej) => ({
     id: ej.id,
     nombre: ej.nombre,
@@ -124,7 +129,7 @@ async function getData(plantillaId: string) {
     dias: diasBySemana,
   }
 
-  return { ejerciciosLib, rutinaData, calentamientos: calentamientos ?? [], bloques }
+  return { ejerciciosLib, rutinaData, calentamientos: calentamientos ?? [], bloques, gruposLib: gruposRaw ?? [] }
 }
 
 interface Props {
@@ -136,7 +141,7 @@ export default async function PlantillaEditPage({ params }: Props) {
   const data = await getData(id)
   if (!data) notFound()
 
-  const { ejerciciosLib, rutinaData, calentamientos, bloques } = data
+  const { ejerciciosLib, rutinaData, calentamientos, bloques, gruposLib } = data
 
   return (
     <div className="flex h-full flex-col">
@@ -163,6 +168,7 @@ export default async function PlantillaEditPage({ params }: Props) {
         ejerciciosLib={ejerciciosLib}
         calentamientosDisponibles={calentamientos}
         bloquesDisponibles={bloques}
+        gruposLib={gruposLib}
         templateMode
       />
     </div>

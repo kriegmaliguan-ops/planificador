@@ -25,7 +25,7 @@ import { EjercicioDiaRow } from './EjercicioDiaRow'
 import { AgregarEjercicioModal } from './AgregarEjercicioModal'
 import { DiaEjerciciosList } from './DiaEjerciciosList'
 import { MODALIDADES } from '@/lib/modalidades'
-import type { DiaSemana } from '@/lib/types/database'
+import type { DiaSemana, GrupoMuscular } from '@/lib/types/database'
 import type { EjercicioItem } from '@/app/(profe)/ejercicios/page'
 import type { RutinaData, EstadoDia, EjercicioEnDia } from '@/app/(profe)/rutinas/[alumnoId]/page'
 
@@ -57,6 +57,7 @@ interface RutinaBuilderProps {
   plantillasDisponibles?: PlantillaResumen[]
   calentamientosDisponibles?: CalentamientoLib[]
   bloquesDisponibles?: BloqueResumen[]
+  gruposLib?: GrupoMuscular[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -454,6 +455,7 @@ export function RutinaBuilder({
   plantillasDisponibles = [],
   calentamientosDisponibles = [],
   bloquesDisponibles = [],
+  gruposLib = [],
 }: RutinaBuilderProps) {
   const router = useRouter()
   const [rutina, setRutina] = useState<RutinaData | null>(rutinaInicial)
@@ -1333,6 +1335,7 @@ export function RutinaBuilder({
         tituloPersonalizado={agregarConfig?.titulo}
         esCardio={agregarConfig?.esCardio ?? false}
         grupoForzadoNombre={agregarConfig?.grupoForzadoNombre}
+        gruposLib={gruposLib}
       />
 
       {/* Modal: Guardar día como bloque */}

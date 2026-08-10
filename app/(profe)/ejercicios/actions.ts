@@ -6,7 +6,7 @@ import { typed } from '@/lib/supabase/types-helper'
 
 export async function crearEjercicio(
   formData: FormData
-): Promise<{ error?: string; success?: boolean }> {
+): Promise<{ error?: string; success?: boolean; id?: string }> {
   const nombre = (formData.get('nombre') as string)?.trim()
   const descripcion = (formData.get('descripcion') as string)?.trim() || null
   const video_url = (formData.get('video_url') as string)?.trim() || null
@@ -38,7 +38,7 @@ export async function crearEjercicio(
   }
 
   revalidatePath('/ejercicios')
-  return { success: true }
+  return { success: true, id: ej.id }
 }
 
 export async function editarEjercicio(
